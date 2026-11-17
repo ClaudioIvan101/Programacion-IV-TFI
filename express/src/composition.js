@@ -8,10 +8,9 @@ import { hashPassword } from "./infra/passwordHasher.js";
 import { makeCreateUser } from "./domain/users/createUser.js";
 import { makeListUsers } from "./domain/users/listUsers.js";
 import { makeGetUserById } from "./domain/users/getUserById.js";
-
+import {makeGetCampaignById} from "./domain/campaigns/getCampaignById.js";
 // Aquí elegimos los adaptadores y conectamos las dependencias.
 export const pool = createPostgresPool();
-
 const campaignRepository = createPostgresCampaignRepository(pool);
 const userRepository = createPostgresUserRepository(pool);
 // Agrupamos los casos de uso por funcionalidad.
@@ -26,6 +25,7 @@ export const useCases = {
   campaigns: {
     create: makeCreateCampaign({ campaignRepository }),
     list: makeListCampaigns({ campaignRepository }),
+    getById: makeGetCampaignById({ campaignRepository })
   },
 };
 

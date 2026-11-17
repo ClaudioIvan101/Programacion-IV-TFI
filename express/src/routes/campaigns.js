@@ -24,12 +24,13 @@ const listQuerySchema = z.strictObject({
 });
 // Este endpoint no utiliza parámetros de consulta.
 const campaignQuerySchema = z.strictObject({});
+// El identificador de nuestras campañas debe ser un UUID.
+const campaignIdSchema = z.string().uuid();
 
-export function createCampaignRouter({   createCampaign,  listCampaigns, }) {
+export function createCampaignRouter({ createCampaign, listCampaigns, getCampaignById, }) {
   const router = Router();
   // esto permite que el router pueda ser probado de manera aislada, sin necesidad de un servidor HTTP real.
   router.get("/", async (req, res) => {
-     console.log("ENTRÓ A GET /campaigns");
     const query = listQuerySchema.safeParse(req.query);
 
     if (!query.success) {
@@ -97,6 +98,30 @@ export function createCampaignRouter({   createCampaign,  listCampaigns, }) {
       throw error;
     }
   });
+  router.get("/:id", async (req, res) => {
+    // :id captura el segmento de la URL después de /campaigns/.
+    const id = campaignIdSchema.safeParse(req.params.id);
 
+    // Reutilizamos el esquema vacío: esta consulta no acepta query params.
+    const query = campaignQuerySchema.safeParse(req.query);
+
+    if (!id.success || !query.success) {
+      return res.status(400).json({
+        error:
+          "El identificador debe ser un UUID válido y no se admiten parámetros de consulta.",
+      });
+    }
+
+    // Ejecutamos el caso de uso con el identificador validado.
+    const campaign = await getCampaignById(id.data);
+
+    if (campaign === null) {
+      return res.status(404).json({
+        error: "Campaña no encontrada.",
+      });
+    }
+
+    return res.status(200).json(campaign);
+  });
   return router;
 }

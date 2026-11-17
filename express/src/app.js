@@ -31,6 +31,7 @@ export function createApp({ campaigns, users } = {}) {
       // El router recibe solamente la función que necesita.
         createCampaign: campaigns.create,
         listCampaigns: campaigns.list,
+        getCampaignById: campaigns.getById,
       }),
     );
   }
