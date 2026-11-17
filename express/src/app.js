@@ -19,10 +19,6 @@ export function createApp({ campaigns } = {}) {
 
   // Conservamos las rutas existentes.
   app.use(routes);
-    console.log("DEPENDENCIAS:", {
-  create: typeof campaigns?.create,
-  list: typeof campaigns?.list
-})
   if (campaigns !== undefined) {
     
     app.use( "/campaigns", createCampaignRouter({ 
