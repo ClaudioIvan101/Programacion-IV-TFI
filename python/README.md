@@ -41,3 +41,35 @@ message instead of a traceback.
 Compose serves the gateway internally at `http://ai-gateway:3100` and uses
 `/ready` as its health check. Local and Compose runs use the same single-threaded
 development server.
+
+## Demo inmobiliaria para el profesor
+
+Desde la raíz, en PowerShell. Se usa un proyecto Compose separado para levantar
+solo `ai-gateway`. El puerto 3100 queda dentro de Docker.
+
+```powershell
+$env:AI_GATEWAY_ENV = 'development'
+docker compose --env-file .env.example -p leadqual-demo up --build --wait --no-deps ai-gateway
+
+foreach ($scenario in 'complete', 'partial') {
+    Write-Host "Escenario: $scenario"
+    docker compose --env-file .env.example -p leadqual-demo exec -T ai-gateway python -c "import json; from urllib.request import urlopen; print(json.dumps(json.load(urlopen('http://ai-gateway:3100/demo/$scenario', timeout=5)), indent=2, ensure_ascii=False))"
+}
+```
+
+- **Completo** (`GET /demo/complete`). `missing_fields` es `[]` y
+  `next_question_key` es `null`.
+- **Parcial** (`GET /demo/partial`). El monto es 100000, la moneda es `null`
+  y el mensaje pregunta si el presupuesto está en ARS o USD.
+
+Django recibe el GET, comprueba que el modo sea `development` y devuelve como
+JSON el ejemplo T4 elegido por el adaptador falso T7. Los dos casos usan datos
+sintéticos. En el modo predeterminado `production`, las rutas de demo
+responden 404.
+
+### Cerrar la demo
+
+```powershell
+docker compose --env-file .env.example -p leadqual-demo down
+Remove-Item Env:AI_GATEWAY_ENV
+```
