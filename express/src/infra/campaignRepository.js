@@ -57,6 +57,26 @@ export function createPostgresCampaignRepository(pool) {
         items: result.rows,
         total: Number(countResult.rows[0].total)
       };
-    }
+    },
+    async findById(id) {
+      // El valor se envía separado del SQL mediante $1.
+      const result = await pool.query(
+        `SELECT
+       id,
+       name,
+       objective,
+       status,
+       start_date AS "startDate",
+       end_date AS "endDate",
+       created_at AS "createdAt",
+       updated_at AS "updatedAt"
+     FROM campaigns
+     WHERE id = $1`,
+        [id],
+      );
+
+      // Si no hay filas, devolvemos null.
+      return result.rows[0] ?? null;
+    },
   };
 }
