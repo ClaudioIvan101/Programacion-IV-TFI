@@ -1,8 +1,7 @@
 # Proyecto inmobiliario — Programación IV
 
-El repositorio contiene dos backends independientes: Express y Python.
-Actualmente incluyen la base HTTP y verificaciones de estado; todavía no hay
-persistencia ni funcionalidades de gestión inmobiliaria.
+Express gestiona la persistencia comercial en PostgreSQL. El gateway Python
+usa Django y responde con el adaptador falso en las pruebas.
 
 ## Entorno local con Docker
 
@@ -10,17 +9,16 @@ Requiere **Docker Desktop instalado y en ejecución**, con contenedores Linux y
 Docker Compose disponible (`docker compose version`). Ejecutar los comandos de
 esta sección desde la raíz del repositorio.
 
-[compose.yaml](compose.yaml) inicia solamente infraestructura de desarrollo:
+[compose.yaml](compose.yaml) inicia los backends y la infraestructura local.
 
 | Servicio | Uso y acceso |
 | --- | --- |
 | PostgreSQL 16 (`db`) | Base de datos, accesible como `db:5432` dentro de la red Docker `backend`. Sus datos persisten en el volumen nombrado `postgres_data`. |
 | Mailpit (`mailpit`) | Captura correos de prueba, sin enviarlos a destinatarios externos. SMTP interno en `mailpit:1025`; interfaz web en [http://localhost:8025](http://localhost:8025), publicada solo en `127.0.0.1`. |
+| Express (`core-api`) | API principal, publicada en `127.0.0.1:3000`. |
+| Django (`ai-gateway`) | Gateway con adaptador falso, accesible en `ai-gateway:3100` dentro de la red `backend`. |
 
-Las APIs Express y Python **no están incluidas ni conectadas** en este Compose.
-PostgreSQL y SMTP no publican puertos en el equipo: las APIs ejecutadas fuera
-de Docker no pueden conectarse por `localhost:5432` o `localhost:1025` con esta
-configuración. Su integración queda pendiente.
+PostgreSQL, SMTP y el gateway usan puertos internos de Docker.
 
 ### Preparar e iniciar
 
@@ -42,7 +40,7 @@ tienen prioridad sobre `.env`. Mailpit no requiere variables en este Compose.
 
 ```bash
 docker compose config --quiet
-docker compose up -d
+docker compose up -d --build
 docker compose ps
 docker compose exec db sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
@@ -87,14 +85,16 @@ Pruebas: ejecutar `npm test` desde `express/`.
 
 ## Backend Python
 
-Verificado con Python 3.13, sin dependencias externas. Desde la raíz:
+Gateway Django verificado con Python 3.13. Desde la raíz:
 
 ```bash
 cd python
+python -m pip install -r requirements.txt
 python -m backend
 ```
 
-El estado se consulta en `http://127.0.0.1:8000/health`.
+El proceso responde en `http://127.0.0.1:8000/health`. La ruta `/ready`
+comprueba la disponibilidad del adaptador falso.
 Pruebas: ejecutar `python -m unittest discover -s tests -v` desde `python/`.
 Este backend toma `HOST` y `PORT` del entorno del proceso; no carga `.env`.
 
