@@ -1,17 +1,23 @@
-"""Pruebas de documentos y fixtures; no ejecutan una API ni un proveedor."""
+"""Pruebas del contrato y del adaptador falso en proceso."""
 
 import copy
 import json
 from pathlib import Path
+import sys
 import unittest
+from unittest.mock import patch
 
 from jsonschema import Draft202012Validator, FormatChecker
 from openapi_spec_validator import OpenAPIV31SpecValidator
 from openapi_spec_validator.readers import read_from_filename
 from referencing import Registry, Resource
 
-
 ROOT = Path(__file__).resolve().parents[1]
+# Permite importar el backend también al ejecutar este archivo directamente.
+sys.path.insert(0, str(ROOT.parent))
+from python.backend.fake_provider import fake_completion
+
+
 SCHEMAS = list((ROOT / "schemas").glob("*.schema.json"))
 REGISTRY = Registry().with_resources(
     (path.as_uri(), Resource.from_contents(json.loads(path.read_text(encoding="utf-8"))))
@@ -57,6 +63,32 @@ class ContractTests(unittest.TestCase):
                     self.assertIn(kind, ("request", "response", "error"))
                     check = validator(f"schemas/{kind}.schema.json")
                     self.assertEqual(check.is_valid(read(path)), expected)
+
+    def test_fake_provider_returns_complete_example(self):
+        expected = read("examples/valid/response-complete.json")
+        response = fake_completion()
+        validator("schemas/response.schema.json").validate(response)
+        self.assertEqual(response, expected)
+        self.assertEqual(fake_completion(), response)
+
+    def test_fake_provider_returns_follow_up_example(self):
+        expected = read("examples/valid/response-follow-up.json")
+        response = fake_completion(partial=True)
+        validator("schemas/response.schema.json").validate(response)
+        self.assertEqual(response, expected)
+        self.assertEqual(fake_completion(partial=True), response)
+
+    def test_fake_provider_invalid_response_is_rejected(self):
+        invalid_path = ROOT / "examples/invalid/response-budget-type.json"
+        invalid_example = invalid_path.read_text(encoding="utf-8")
+        with patch.object(Path, "read_text", return_value=invalid_example):
+            response = fake_completion()
+        self.assertFalse(validator("schemas/response.schema.json").is_valid(response))
+
+    def test_fake_provider_unavailable_surfaces_the_error(self):
+        with patch.object(Path, "read_text", side_effect=FileNotFoundError):
+            with self.assertRaises(FileNotFoundError):
+                fake_completion()
 
     def test_openapi_examples_match_their_response_status_and_schema(self):
         request = self.operation["requestBody"]["content"]["application/json"]
