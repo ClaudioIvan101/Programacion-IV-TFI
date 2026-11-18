@@ -42,6 +42,32 @@ services:
       mailpit:
         condition: service_started
 
+  ai-gateway:
+    build:
+      context: .
+      dockerfile: python/Dockerfile
+    init: true
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3100"
+    networks:
+      - backend
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -B
+        - -c
+        - >-
+          from urllib.request import urlopen;
+          from backend.fake_provider import fake_completion;
+          urlopen('http://127.0.0.1:3100/health', timeout=2).close();
+          fake_completion();
+          fake_completion(partial=True)
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   mailpit:
     image: axllent/mailpit:v1.33.0
     restart: unless-stopped
