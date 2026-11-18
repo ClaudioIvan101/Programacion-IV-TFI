@@ -1,0 +1,3 @@
+**
+!python/backend/*.py
+!contracts/examples/valid/response-*.json
