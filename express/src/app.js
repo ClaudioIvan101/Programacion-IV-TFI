@@ -2,10 +2,11 @@ import express from "express";
 import routes from "./routes/index.js";
 import { createCampaignRouter } from "./routes/campaigns.js";
 import { createUserRouter } from "./routes/users.js";
+import { createCaptureRouter } from "./routes/capture.js";
 import notFound from "./middlewares/notFound.js";
 import errorHandler from "./middlewares/errorHandler.js";
 
-export function createApp({ campaigns, users } = {}) {
+export function createApp({ campaigns, users, capture } = {}) {
   const app = express();
 
   app.disable("x-powered-by");
@@ -20,6 +21,8 @@ export function createApp({ campaigns, users } = {}) {
 
   // Conservamos las rutas existentes.
   app.use(routes);
+
+  if (capture !== undefined) app.use(createCaptureRouter(capture));
 
   if (users !== undefined) {
     app.use("/users", createUserRouter(users));
