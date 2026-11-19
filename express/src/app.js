@@ -3,10 +3,11 @@ import routes from "./routes/index.js";
 import { createCampaignRouter } from "./routes/campaigns.js";
 import { createUserRouter } from "./routes/users.js";
 import { createCaptureRouter } from "./routes/capture.js";
+import { createLeadRouter } from "./routes/leads.js";
 import notFound from "./middlewares/notFound.js";
 import errorHandler from "./middlewares/errorHandler.js";
 
-export function createApp({ campaigns, users, capture } = {}) {
+export function createApp({ campaigns, users, capture, leads } = {}) {
   const app = express();
 
   app.disable("x-powered-by");
@@ -23,6 +24,7 @@ export function createApp({ campaigns, users, capture } = {}) {
   app.use(routes);
 
   if (capture !== undefined) app.use(createCaptureRouter(capture));
+  if (leads !== undefined) app.use(createLeadRouter(leads));
 
   if (users !== undefined) {
     app.use("/users", createUserRouter(users));

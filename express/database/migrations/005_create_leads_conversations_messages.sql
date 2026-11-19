@@ -1,14 +1,14 @@
--- La 004 se reserva para captación. En bases compartidas debe aplicarse antes de la 005.
+-- La migración 004 define los canales de campaña y los formularios de captación.
 CREATE TABLE leads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT CHECK (char_length(name) <= 120 AND name ~ '[^[:space:]]'),
   email TEXT CHECK (char_length(email) <= 254 AND email ~ '[^[:space:]]'),
   phone TEXT CHECK (char_length(phone) <= 40 AND phone ~ '[^[:space:]]'),
 
-  -- La campaña ya existe. Canal y formulario conservan el origen declarado.
+  -- Cada referencia conserva el origen informado, incluso si falta la campaña.
   campaign_id UUID REFERENCES campaigns (id),
-  channel TEXT CHECK (channel ~ '[^[:space:]]'),
-  form_id TEXT CHECK (form_id ~ '[^[:space:]]'),
+  channel TEXT CHECK (channel IN ('form', 'simulated_messaging')),
+  form_id UUID REFERENCES forms (id),
 
   needs TEXT CHECK (char_length(needs) <= 2000 AND needs ~ '[^[:space:]]'),
   budget_amount NUMERIC CHECK (budget_amount BETWEEN 0 AND 1000000000000),
@@ -19,7 +19,10 @@ CREATE TABLE leads (
     CHECK (status IN ('nuevo', 'en calificación', 'calificado', 'no calificado', 'asignado', 'cerrado')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  CHECK (budget_currency IS NULL OR budget_amount IS NOT NULL)
+  CHECK (budget_currency IS NULL OR budget_amount IS NOT NULL),
+  CHECK (form_id IS NULL OR channel IS NOT DISTINCT FROM 'form'),
+  -- La FK compuesta comprueba la asociación cuando se informan ambos campos.
+  FOREIGN KEY (campaign_id, channel) REFERENCES campaign_channels (campaign_id, channel)
 );
 
 CREATE TABLE conversations (
@@ -37,5 +40,6 @@ CREATE TABLE messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Los índices facilitan consultar las conversaciones y el historial por recurso padre.
 CREATE INDEX conversations_lead_id_idx ON conversations (lead_id);
 CREATE INDEX messages_conversation_history_idx ON messages (conversation_id, created_at, id);
