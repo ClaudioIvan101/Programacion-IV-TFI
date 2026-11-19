@@ -59,8 +59,10 @@ foreach ($scenario in 'complete', 'partial') {
 
 - **Completo** (`GET /demo/complete`). `missing_fields` es `[]` y
   `next_question_key` es `null`.
-- **Parcial** (`GET /demo/partial`). El monto es 100000, la moneda es `null`
-  y el mensaje pregunta si el presupuesto está en ARS o USD.
+- **Parcial** (`GET /demo/partial`). El adaptador carga
+  [`response-follow-up.json`](../contracts/examples/valid/response-follow-up.json).
+  La respuesta conserva el monto de 100000 con moneda `null`.
+  `next_question_key` indica `presupuesto` y `assistant_message` pregunta si son ARS o USD.
 
 Django recibe el GET, comprueba que el modo sea `development` y devuelve como
 JSON el ejemplo T4 elegido por el adaptador falso T7. Los dos casos usan datos
