@@ -9,12 +9,26 @@ import { makeCreateUser } from "./domain/users/createUser.js";
 import { makeListUsers } from "./domain/users/listUsers.js";
 import { makeGetUserById } from "./domain/users/getUserById.js";
 import {makeGetCampaignById} from "./domain/campaigns/getCampaignById.js";
+import { createPostgresCaptureRepository } from "./infra/captureRepository.js";
+import { makeAddCampaignChannel } from "./domain/capture/addCampaignChannel.js";
+import { makeListCampaignChannels } from "./domain/capture/listCampaignChannels.js";
+import { makeCreateForm } from "./domain/capture/createForm.js";
+import { makeGetFormById } from "./domain/capture/getFormById.js";
 // Aquí elegimos los adaptadores y conectamos las dependencias.
 export const pool = createPostgresPool();
 const campaignRepository = createPostgresCampaignRepository(pool);
 const userRepository = createPostgresUserRepository(pool);
+const captureRepository = createPostgresCaptureRepository(pool);
 // Agrupamos los casos de uso por funcionalidad.
 export const useCases = {
+  capture: {
+    addCampaignChannel: makeAddCampaignChannel({ captureRepository }),
+    listCampaignChannels: makeListCampaignChannels({ captureRepository }),
+    createForm: makeCreateForm({ captureRepository }),
+    getFormById: makeGetFormById({ captureRepository }),
+    // Sustituir solamente al integrar autorización real.
+    authorize: async () => false,
+  },
   users: {
     createUser: makeCreateUser({ userRepository, hashPassword }),
     listUsers: makeListUsers({ userRepository }),
