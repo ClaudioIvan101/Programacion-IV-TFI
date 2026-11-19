@@ -2,6 +2,9 @@ FROM python:3.13-slim
 
 WORKDIR /app/python
 
+COPY python/requirements.txt ./
+RUN python -m pip install --no-cache-dir -r requirements.txt
+
 COPY python/backend/ ./backend/
 COPY contracts/examples/valid/response-*.json /app/contracts/examples/valid/
 

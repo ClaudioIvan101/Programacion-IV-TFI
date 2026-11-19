@@ -60,10 +60,7 @@ services:
         - -c
         - >-
           from urllib.request import urlopen;
-          from backend.fake_provider import fake_completion;
-          urlopen('http://127.0.0.1:3100/health', timeout=2).close();
-          fake_completion();
-          fake_completion(partial=True)
+          urlopen('http://127.0.0.1:3100/ready', timeout=2).close()
       interval: 5s
       timeout: 3s
       retries: 5

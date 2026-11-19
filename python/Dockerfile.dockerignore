@@ -1,3 +1,4 @@
 **
 !python/backend/*.py
+!python/requirements.txt
 !contracts/examples/valid/response-*.json
