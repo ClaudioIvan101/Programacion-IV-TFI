@@ -7,6 +7,7 @@ RUN npm ci
 
 COPY --chown=node:node index.js ./
 COPY --chown=node:node src ./src
+COPY --chown=node:node scripts ./scripts
 COPY --chown=node:node tests ./tests
 COPY --chown=node:node database ./database
 

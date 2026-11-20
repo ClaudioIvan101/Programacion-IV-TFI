@@ -33,9 +33,26 @@ Esta clave es para los JWT HS256 de usuario. La comunicación Express–Django
 utiliza su propio par de claves RS256. Si falta la clave de usuario, el login
 responde `503`.
 
-Para el primer administrador, la propuesta es un comando de mantenimiento de
-una sola vez, ejecutado por quien administra el despliegue. El comando recibe
-el nombre y el correo, pide una contraseña sin eco y llama al caso de uso
-existente `createUser` con rol `administrador`. Ese caso genera el hash scrypt
-y escribe en PostgreSQL. El comando debe rechazar el alta si ya existe un
-administrador y evitar guardar la contraseña en el historial o en el código.
+### Alta inicial desde la terminal
+
+Ejecutá el comando con las migraciones aplicadas y las variables `PG*`
+configuradas para la base del despliegue. Desde `express/`:
+
+```sh
+npm run admin:create-first
+```
+
+Con Docker Compose, desde la raíz y con `core-api` reconstruido y en ejecución:
+
+```sh
+docker compose exec core-api npm run admin:create-first
+```
+
+Ingresá el nombre, el email y una contraseña de 12 a 1024 caracteres. Escribí
+la contraseña cuando aparezca su turno. La terminal la mantiene oculta.
+El comando usa `createUser` con rol `administrador` y guarda el hash scrypt.
+
+PostgreSQL comprueba si ya hay un administrador y realiza el alta en una sola
+transacción. Si ya existe uno, aun si está inactivo, el comando termina con
+código 1. Ante dos ejecuciones simultáneas, solo una puede dar de alta la
+primera cuenta.
