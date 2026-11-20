@@ -1,0 +1,28 @@
+import { Router } from 'express';
+import { z } from 'zod';
+
+const credentialsSchema = z.strictObject({
+  email: z.string().trim().max(254).email(),
+  password: z.string().min(1).max(1024),
+});
+
+export function createAuthRouter({ login }) {
+  const router = Router();
+  router.post('/login', async (req, res) => {
+    // La respuesta puede contener un token y se entrega sin caché.
+    res.set('Cache-Control', 'no-store');
+    if (req.get('Content-Type')?.split(';')[0].trim().toLowerCase() !== 'application/json') {
+      return res.status(415).json({ error: 'El cuerpo debe enviarse como application/json.' });
+    }
+    const credentials = credentialsSchema.safeParse(req.body);
+    if (!credentials.success || Object.keys(req.query).length) {
+      return res.status(400).json({ error: 'Datos inválidos.' });
+    }
+    if (!login) return res.status(503).json({ error: 'Inicio de sesión no disponible.' });
+
+    const token = await login(credentials.data);
+    if (!token) return res.status(401).json({ error: 'Credenciales inválidas.' });
+    return res.json(token);
+  });
+  return router;
+}

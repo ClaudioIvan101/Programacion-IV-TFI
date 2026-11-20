@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { DuplicateEmailError, InvalidUserError } from '../domain/users/createUser.js';
+import { requireUserRole } from '../middlewares/requireUserRole.js';
 
 const bodySchema = z.strictObject({
   name: z.string().trim().min(1).max(200),
@@ -11,12 +12,9 @@ const bodySchema = z.strictObject({
 const querySchema = z.strictObject({});
 const idSchema = z.string().uuid();
 
-export function createUserRouter({ createUser, listUsers, getUserById, authorize = async () => false }) {
+export function createUserRouter({ createUser, listUsers, getUserById, authenticate = async () => null }) {
   const router = Router();
-  router.use(async (req, res, next) => {
-    if (await authorize(req) !== true) return res.status(403).json({ error: 'Acceso denegado.' });
-    next();
-  });
+  router.use(requireUserRole(authenticate, 'administrador'));
   router.post('/', async (req, res) => {
     if (req.get('Content-Type')?.split(';')[0].trim().toLowerCase() !== 'application/json') {
       return res.status(415).json({ error: 'El cuerpo debe enviarse como application/json.' });

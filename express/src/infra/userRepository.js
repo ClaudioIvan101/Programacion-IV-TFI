@@ -24,5 +24,12 @@ export function createPostgresUserRepository(pool) {
     async findById(id) {
       return (await pool.query(`SELECT ${publicColumns} FROM users WHERE id = $1`, [id])).rows[0] ?? null;
     },
+    async findCredentialsByEmail(email) {
+      // Solo el login necesita leer el hash. La búsqueda usa el índice de lower(email).
+      return (await pool.query(
+        'SELECT id, status, password_hash AS "passwordHash" FROM users WHERE lower(email) = $1',
+        [email],
+      )).rows[0] ?? null;
+    },
   };
 }
