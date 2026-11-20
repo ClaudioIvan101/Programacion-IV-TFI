@@ -18,12 +18,16 @@ import { makeGetFormById } from "./domain/capture/getFormById.js";
 import { createJwtAuthenticator, createJwtIssuer } from "./infra/jwtAuthenticator.js";
 import { createPostgresLeadRepository } from "./infra/leadRepository.js";
 import { makeCreateLead } from "./domain/leads/createLead.js";
+import { makeApplyQualificationData } from "./domain/leads/applyQualificationData.js";
+import { makeQualificationUseCases } from "./domain/leads/qualifyLead.js";
+import { createPostgresQualificationRepository } from "./infra/qualificationRepository.js";
 // Aquí elegimos los adaptadores y conectamos las dependencias.
 export const pool = createPostgresPool();
 const campaignRepository = createPostgresCampaignRepository(pool);
 const userRepository = createPostgresUserRepository(pool);
 const captureRepository = createPostgresCaptureRepository(pool);
 const leadRepository = createPostgresLeadRepository(pool);
+const qualificationRepository = createPostgresQualificationRepository(pool);
 // La clave HS256 de usuarios se usa solo dentro de Express.
 const secretHex = process.env.JWT_SECRET_HEX;
 const authenticate = createJwtAuthenticator({
@@ -48,6 +52,12 @@ export const useCases = {
     getFormById: makeGetFormById({ captureRepository }),
     // El JWT identifica al usuario; sus permisos se consultan en la base.
     authenticate,
+  },
+  qualification: {
+    // Comparte la identidad JWT de usuarios, sin cambiar permisos de otras rutas.
+    authenticate,
+    applyQualificationData: makeApplyQualificationData({ qualificationRepository }),
+    ...makeQualificationUseCases({ qualificationRepository }),
   },
   users: {
     createUser: makeCreateUser({ userRepository, hashPassword }),

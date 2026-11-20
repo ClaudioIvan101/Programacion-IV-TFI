@@ -5,10 +5,11 @@ import { createUserRouter } from "./routes/users.js";
 import { createAuthRouter } from "./routes/auth.js";
 import { createCaptureRouter } from "./routes/capture.js";
 import { createLeadRouter } from "./routes/leads.js";
+import { createQualificationRouter } from "./routes/qualification.js";
 import notFound from "./middlewares/notFound.js";
 import errorHandler from "./middlewares/errorHandler.js";
 
-export function createApp({ campaigns, users, capture, leads, auth } = {}) {
+export function createApp({ campaigns, users, capture, leads, auth, qualification } = {}) {
   const app = express();
 
   app.disable("x-powered-by");
@@ -26,6 +27,7 @@ export function createApp({ campaigns, users, capture, leads, auth } = {}) {
 
   if (capture !== undefined) app.use(createCaptureRouter(capture));
   if (leads !== undefined) app.use(createLeadRouter(leads));
+  if (qualification !== undefined) app.use(createQualificationRouter(qualification));
   if (auth !== undefined) app.use("/auth", createAuthRouter(auth));
 
   if (users !== undefined) {
