@@ -84,13 +84,14 @@ test('API de leads, conversaciones y mensajes con PostgreSQL', { timeout: 15_000
       assert.equal(saved.formId, origin.formId ?? null);
     }
 
+    const name = '🏠'.repeat(120);
     lead = await request('/leads', 201, {
-      name: ' Ana ', email: 'ana@example.com', phone: '1234',
+      name: ` ${name} `, email: 'ana@example.com', phone: '1234',
       campaignId: campaign.id.toUpperCase(), channel: 'form', formId: form.id,
       needs: 'Casa', budgetAmount: 100000.50, budgetCurrency: 'USD', urgency: 'Este mes',
     });
     assert.deepEqual(lead, {
-      id: lead.id, name: 'Ana', email: 'ana@example.com', phone: '1234',
+      id: lead.id, name, email: 'ana@example.com', phone: '1234',
       campaignId: campaign.id, channel: 'form', formId: form.id, needs: 'Casa',
       budgetAmount: 100000.50, budgetCurrency: 'USD', urgency: 'Este mes', status: 'nuevo', createdAt: lead.createdAt,
     });
@@ -116,6 +117,8 @@ test('API de leads, conversaciones y mensajes con PostgreSQL', { timeout: 15_000
       { budgetAmount: -1 },
       { name: ' \t ' },
       { name: 'Ana\0' },
+      { name: '\uD800' },
+      { name: '🏠'.repeat(121) },
       { status: 'calificado' },
     ]) {
       await request('/leads', 400, origin);
@@ -145,13 +148,14 @@ test('API de leads, conversaciones y mensajes con PostgreSQL', { timeout: 15_000
     assert.deepEqual(await request(conversationsPath, 200), [conversation, other]);
 
     const messagesPath = `/conversations/${conversation.id}/messages`;
-    const validMessage = { role: 'lead', content: ' Busco una casa. ' };
+    const validMessage = { role: 'lead', content: ` ${'🏠'.repeat(3998)} ` };
     assert.deepEqual(await request(messagesPath, 200), []);
     await request(`/conversations/${unknownId}/messages`, 404, validMessage);
     await request(`/conversations/${unknownId}/messages`, 404);
     await request(messagesPath, 400, { role: 'system', content: 'Hola' });
     await request(messagesPath, 400, { role: 'lead', content: '\t ' });
     await request(messagesPath, 400, { role: 'lead', content: 'a'.repeat(4001) });
+    await request(messagesPath, 400, { role: 'lead', content: '\uD800' });
 
     const incoming = await request(messagesPath, 201, validMessage);
     const reply = await request(messagesPath, 201, { role: 'assistant', content: '¿En qué zona?' });

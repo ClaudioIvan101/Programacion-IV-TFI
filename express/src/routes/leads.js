@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { InvalidLeadError } from '../domain/leads/createLead.js';
 
 const id = z.string().uuid();
-const text = (max) => z.string().trim().min(1).max(max).refine((value) => !value.includes('\0'));
+// Evitamos que la codificación UTF-8 reemplace caracteres inválidos o envíe un carácter nulo a PostgreSQL.
+const validPostgresText = (value) => value.isWellFormed() && !value.includes('\0');
+const text = (max) => z.string().trim().min(1).max(max).refine(validPostgresText);
 const leadBody = z.strictObject({
   name: text(120).nullish(),
   email: z.string().trim().max(254).email().nullish(),
@@ -18,7 +20,7 @@ const leadBody = z.strictObject({
 });
 const messageBody = z.strictObject({
   role: z.enum(['lead', 'assistant']),
-  content: z.string().max(4000).refine((value) => value.trim().length > 0 && !value.includes('\0')),
+  content: z.string().max(4000).refine((value) => value.trim().length > 0 && validPostgresText(value)),
 });
 
 // Validamos los parámetros antes de pasar datos a PostgreSQL y usamos el mismo contrato de errores de la API.
