@@ -16,7 +16,8 @@ test("start loads an optional .env without overriding process variables", () => 
 
   function readPort(environment) {
     const result = spawnSync(process.execPath, [...args, "-e", script], {
-      cwd, env: environment, encoding: "utf8", timeout: 5000,
+      // El proceso compite por CPU con las demás pruebas al correr dentro de Docker.
+      cwd, env: environment, encoding: "utf8", timeout: 15_000,
     });
     assert.equal(result.error, undefined);
     assert.equal(result.status, 0, result.stderr);
