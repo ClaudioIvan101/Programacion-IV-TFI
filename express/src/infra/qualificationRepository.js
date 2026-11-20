@@ -29,10 +29,12 @@ export function createPostgresQualificationRepository(pool) {
         );
         if (!current) return null;
         const next = merge(current);
+        // Si el monto no cambió, se conserva el NUMERIC original sin reescribir su aproximación en JS.
+        const newBudgetAmount = Object.is(next.budgetAmount, current.budgetAmount) ? null : next.budgetAmount;
         const { rows: [updated] } = await client.query(
-          `UPDATE leads AS l SET needs = $2, urgency = $3, budget_amount = $4, budget_currency = $5
+          `UPDATE leads AS l SET needs = $2, urgency = $3, budget_amount = COALESCE($4, l.budget_amount), budget_currency = $5
            WHERE l.id = $1 RETURNING l.id, ${qualificationFacts}`,
-          [leadId, next.needs, next.urgency, next.budgetAmount, next.budgetCurrency],
+          [leadId, next.needs, next.urgency, newBudgetAmount, next.budgetCurrency],
         );
         return updated;
       });
