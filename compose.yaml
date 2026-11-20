@@ -21,7 +21,8 @@ services:
 
   core-api:
     build:
-      context: ./express
+      context: .
+      dockerfile: express/Dockerfile
     init: true
     environment:
       HOST: "0.0.0.0"
