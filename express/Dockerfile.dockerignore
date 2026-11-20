@@ -1,0 +1,12 @@
+**
+!express/package.json
+!express/package-lock.json
+!express/index.js
+!express/src/*.js
+!express/src/**/*.js
+!express/tests/*.js
+!express/tests/**/*.js
+!express/database/migrations/*.sql
+!contracts/schemas/*.json
+!contracts/examples/valid/request-partial.json
+!contracts/examples/valid/response-follow-up.json
