@@ -40,16 +40,21 @@ tienen prioridad sobre `.env`. Mailpit no requiere variables en este Compose.
 
 ```bash
 docker compose config --quiet
-docker compose up -d --build
+docker compose up -d --build --wait
 docker compose ps
 docker compose exec db sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+docker compose exec core-api npm run migrate
+curl -fsS http://127.0.0.1:3000/health
+docker compose exec ai-gateway python -c "from urllib.request import urlopen; print(urlopen('http://127.0.0.1:3100/health').status, urlopen('http://127.0.0.1:3100/ready').status)"
 ```
 
-La primera ejecución puede descargar las imágenes. Esperar a que `db` aparezca
-como `healthy` y Mailpit como iniciado; `pg_isready` debe indicar que acepta
-conexiones. Abrir la interfaz de Mailpit para verificarla: esta comprobación no
-demuestra todavía un envío desde las APIs. Evitar publicar la salida de
-`docker compose config` sin `--quiet`, porque puede mostrar contraseñas.
+La primera ejecución puede descargar las imágenes. `db` y `ai-gateway` deben
+figurar como `healthy`. Ejecutar las migraciones antes de probar las rutas que
+usan datos. Express tiene `/health`; su `/ready` sigue pendiente de T5.
+La interfaz de Mailpit debe abrir en el puerto 8025. Si un puerto publicado ya
+está ocupado, usar otro puerto de host con un archivo Compose local de
+sobrescritura. Mantener `--quiet` al compartir la validación de la configuración
+para evitar exponer contraseñas.
 
 ### Detener y conservar los datos
 
@@ -69,19 +74,19 @@ Referencia: [inicio con Compose](https://docs.docker.com/reference/cli/docker/co
 
 ## Backend Express
 
-Requiere Node.js 22.9 o superior. Desde la raíz del repositorio:
+Requiere Node.js 22.9 o superior. Para ejecutar Express fuera de Docker,
+definir `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` y `PGPASSWORD` para una
+instancia PostgreSQL accesible. Desde la raíz del repositorio:
 
 ```bash
 cd express
 npm ci
+npm run migrate
 npm start
 ```
 
 La API estará disponible en `http://localhost:3000`; el estado se consulta en
-`GET /health`. Opcionalmente, copiar `express/.env.example` a `express/.env`
-antes de iniciarla para configurar `HOST`, `PORT` y `NODE_ENV`.
-
-Pruebas: ejecutar `npm test` desde `express/`.
+`GET /health`. `HOST`, `PORT` y `NODE_ENV` se pueden configurar en `express/.env`.
 
 ## Backend Python
 
@@ -102,8 +107,21 @@ Detener cualquiera de los servidores con Ctrl+C.
 
 ## Pruebas automáticas
 
-GitHub Actions ejecuta las pruebas de Express y Python en cada push y pull
-request. Los resultados aparecen en la pestaña **Actions** del repositorio.
+GitHub Actions ejecuta tres jobs independientes en cada push y pull request.
+Los resultados aparecen en la pestaña **Actions** del repositorio.
+
+- **Express y PostgreSQL.** Con el Compose anterior en marcha, ejecutar
+  `docker compose exec -T -e RUN_CAPTURE_DB_TESTS=1 -e RUN_USERS_DB_TESTS=1 core-api npm test`.
+  Los dos indicadores habilitan las pruebas de base de datos de captación y
+  usuarios. Usar una base de prueba. Para probar leads mientras su PR siga
+  abierto, ejecutar los pasos de Compose desde un clon temporal de
+  `codex/etapa2-esquema-leads` para incluir la migración 005.
+- **Django.** Desde `python/`, ejecutar `python -m pip install -r requirements.txt`
+  y `python -m unittest discover -s tests -v` con Python 3.13.
+- **Contratos T4.** Desde la raíz, ejecutar
+  `python -m pip install -r contracts/requirements-test.txt` y
+  `python -m unittest discover -s contracts/tests -v` con Python 3.13. Valida
+  OpenAPI, esquemas, ejemplos y el adaptador falso en proceso.
 
 ## Documentación
 

@@ -17,7 +17,8 @@ class StartupTests(unittest.TestCase):
             env={**os.environ, "HOST": "127.0.0.1", "PORT": str(port)},
             capture_output=True,
             text=True,
-            timeout=5,
+            # Dejamos margen para el arranque en frío del intérprete y Django en Windows.
+            timeout=30,
         )
 
     def assert_safe_failure(self, result):

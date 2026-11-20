@@ -51,6 +51,7 @@ services:
     environment:
       HOST: "0.0.0.0"
       PORT: "3100"
+      AI_GATEWAY_ENV: "${AI_GATEWAY_ENV:-production}"
     networks:
       - backend
     healthcheck:

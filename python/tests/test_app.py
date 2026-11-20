@@ -1,8 +1,9 @@
 import json
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from django.test import RequestFactory
+from django.test import RequestFactory, override_settings
 
 from backend.app import app
 
@@ -59,3 +60,32 @@ class AppTests(unittest.TestCase):
                 self.assertEqual(health_status, "200 OK")
                 self.assertEqual(status, "503 Service Unavailable")
                 self.assertEqual(json.loads(body), {"status": "unavailable"})
+
+    @override_settings(DEMO_ENABLED=True)
+    def test_demo_returns_both_t4_examples(self):
+        examples = Path(__file__).resolve().parents[2] / "contracts" / "examples" / "valid"
+        for scenario, filename in (
+            ("complete", "response-complete.json"),
+            ("partial", "response-follow-up.json"),
+        ):
+            with self.subTest(scenario=scenario):
+                status, headers, body = self.request(f"/demo/{scenario}")
+                expected = json.loads((examples / filename).read_text(encoding="utf-8"))
+                self.assertEqual(status, "200 OK")
+                self.assertEqual(headers["Cache-Control"], "no-store")
+                self.assertEqual(json.loads(body), expected)
+
+    @override_settings(DEMO_ENABLED=False)
+    def test_demo_is_unavailable_outside_development(self):
+        with patch("backend.urls.fake_completion") as fake:
+            for scenario in ("complete", "partial"):
+                with self.subTest(scenario=scenario):
+                    status, _, _ = self.request(f"/demo/{scenario}")
+                    self.assertEqual(status, "404 Not Found")
+            fake.assert_not_called()
+
+    @override_settings(DEMO_ENABLED=True)
+    def test_demo_rejects_writes(self):
+        status, headers, _ = self.request("/demo/complete", method="POST")
+        self.assertEqual(status, "405 Method Not Allowed")
+        self.assertEqual(headers["Allow"], "GET, HEAD")

@@ -15,13 +15,20 @@ import { makeListCampaignChannels } from "./domain/capture/listCampaignChannels.
 import { makeCreateForm } from "./domain/capture/createForm.js";
 import { makeGetFormById } from "./domain/capture/getFormById.js";
 import { createJwtAuthenticator } from "./infra/jwtAuthenticator.js";
+import { createPostgresLeadRepository } from "./infra/leadRepository.js";
+import { makeCreateLead } from "./domain/leads/createLead.js";
 // Aquí elegimos los adaptadores y conectamos las dependencias.
 export const pool = createPostgresPool();
 const campaignRepository = createPostgresCampaignRepository(pool);
 const userRepository = createPostgresUserRepository(pool);
 const captureRepository = createPostgresCaptureRepository(pool);
+const leadRepository = createPostgresLeadRepository(pool);
 // Agrupamos los casos de uso por funcionalidad.
 export const useCases = {
+  leads: {
+    ...leadRepository,
+    createLead: makeCreateLead({ leadRepository }),
+  },
   // Los casos de uso de captación comparten el mismo adaptador de persistencia.
   capture: {
     addCampaignChannel: makeAddCampaignChannel({ captureRepository }),

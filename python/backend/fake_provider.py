@@ -5,7 +5,8 @@ from pathlib import Path
 
 
 def fake_completion(*, partial=False):
-    """Devuelve el ejemplo completo o el de seguimiento, según el escenario."""
+    """Carga el ejemplo sintético de T4 y lo devuelve como un diccionario."""
     filename = "response-follow-up.json" if partial else "response-complete.json"
+    # Subimos hasta la raíz que contiene python/ y contracts/, también en Docker.
     examples = Path(__file__).resolve().parents[2] / "contracts" / "examples" / "valid"
     return json.loads((examples / filename).read_text(encoding="utf-8"))
