@@ -4,8 +4,9 @@ import {createPostgresCampaignRepository} from "./infra/campaignRepository.js";
 import {makeCreateCampaign} from "./domain/campaigns/createCampaign.js";
 import {makeListCampaigns} from "./domain/campaigns/listCampaign.js";
 import { createPostgresUserRepository } from "./infra/userRepository.js";
-import { hashPassword } from "./infra/passwordHasher.js";
+import { hashPassword, verifyPassword } from "./infra/passwordHasher.js";
 import { makeCreateUser } from "./domain/users/createUser.js";
+import { makeLogin } from "./domain/users/login.js";
 import { makeListUsers } from "./domain/users/listUsers.js";
 import { makeGetUserById } from "./domain/users/getUserById.js";
 import {makeGetCampaignById} from "./domain/campaigns/getCampaignById.js";
@@ -14,7 +15,7 @@ import { makeAddCampaignChannel } from "./domain/capture/addCampaignChannel.js";
 import { makeListCampaignChannels } from "./domain/capture/listCampaignChannels.js";
 import { makeCreateForm } from "./domain/capture/createForm.js";
 import { makeGetFormById } from "./domain/capture/getFormById.js";
-import { createJwtAuthenticator } from "./infra/jwtAuthenticator.js";
+import { createJwtAuthenticator, createJwtIssuer } from "./infra/jwtAuthenticator.js";
 import { createPostgresLeadRepository } from "./infra/leadRepository.js";
 import { makeCreateLead } from "./domain/leads/createLead.js";
 // Aquí elegimos los adaptadores y conectamos las dependencias.
@@ -23,8 +24,18 @@ const campaignRepository = createPostgresCampaignRepository(pool);
 const userRepository = createPostgresUserRepository(pool);
 const captureRepository = createPostgresCaptureRepository(pool);
 const leadRepository = createPostgresLeadRepository(pool);
+// La clave HS256 de usuarios se usa solo dentro de Express.
+const secretHex = process.env.JWT_SECRET_HEX;
+const authenticate = createJwtAuthenticator({
+  secretHex,
+  findUserById: (id) => userRepository.findById(id),
+});
+const issueToken = createJwtIssuer({ secretHex });
 // Agrupamos los casos de uso por funcionalidad.
 export const useCases = {
+  auth: {
+    login: issueToken ? makeLogin({ userRepository, verifyPassword, issueToken }) : null,
+  },
   leads: {
     ...leadRepository,
     createLead: makeCreateLead({ leadRepository }),
@@ -36,17 +47,13 @@ export const useCases = {
     createForm: makeCreateForm({ captureRepository }),
     getFormById: makeGetFormById({ captureRepository }),
     // El JWT identifica al usuario; sus permisos se consultan en la base.
-    authenticate: createJwtAuthenticator({
-      secretHex: process.env.JWT_SECRET_HEX,
-      findUserById: (id) => userRepository.findById(id),
-    }),
+    authenticate,
   },
   users: {
     createUser: makeCreateUser({ userRepository, hashPassword }),
     listUsers: makeListUsers({ userRepository }),
     getUserById: makeGetUserById({ userRepository }),
-    // Denegar hasta integrar autenticación y autorización reales.
-    authorize: async () => false,
+    authenticate,
   },
   campaigns: {
     create: makeCreateCampaign({ campaignRepository }),

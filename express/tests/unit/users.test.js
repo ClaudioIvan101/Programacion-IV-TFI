@@ -19,11 +19,14 @@ test('repositorio parametriza valores y no selecciona hashes', async () => {
   await repo.create({ name: 'Ana', email: 'ana@example.com', passwordHash: 'hash', role: 'vendedor' });
   await repo.list();
   await repo.findById('id');
+  await repo.findCredentialsByEmail('ana@example.com');
   assert.deepEqual(calls[0].values, ['Ana', 'ana@example.com', 'hash', 'vendedor']);
   assert.match(calls[0].sql, /\$1/);
   assert.deepEqual(calls[2].values, ['id']);
   assert.doesNotMatch(calls[1].sql, /password_hash/);
   assert.doesNotMatch(calls[2].sql, /password_hash/);
+  assert.deepEqual(calls[3].values, ['ana@example.com']);
+  assert.match(calls[3].sql, /password_hash AS "passwordHash".*lower\(email\) = \$1/);
 });
 
 test('solo el índice único de email se traduce a conflicto', async () => {

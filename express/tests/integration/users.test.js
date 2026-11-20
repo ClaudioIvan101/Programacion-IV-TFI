@@ -25,7 +25,7 @@ async function setup(t, allowed) {
     createUser: makeCreateUser({ userRepository, hashPassword: async () => 'fake-hash' }),
     listUsers: makeListUsers({ userRepository }),
     getUserById: makeGetUserById({ userRepository }),
-    ...(allowed ? { authorize: async () => true } : {}),
+    ...(allowed ? { authenticate: async () => ({ status: 'active', role: 'administrador' }) } : {}),
   };
   const server = createApp({ users }).listen(0, '127.0.0.1');
   t.after(() => new Promise((resolve) => server.close(resolve)));
@@ -62,9 +62,9 @@ test('usuarios: crear, consultar, validar y evitar exposición de secretos', asy
 
 test('usuarios: denegar por defecto todas las operaciones', async (t) => {
   const { base, rows } = await setup(t, false);
-  assert.equal((await fetch(`${base}/users`)).status, 403);
-  assert.equal((await fetch(`${base}/users/${id}`)).status, 403);
-  assert.equal((await fetch(`${base}/users`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })).status, 403);
+  assert.equal((await fetch(`${base}/users`)).status, 401);
+  assert.equal((await fetch(`${base}/users/${id}`)).status, 401);
+  assert.equal((await fetch(`${base}/users`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })).status, 401);
   assert.equal(rows.length, 0);
 });
 
@@ -81,7 +81,7 @@ test('la composición real deniega los tres endpoints sin conectar PostgreSQL', 
         ['/users', {}],
         ['/users/af24e13f-a33f-4a5d-9e76-cbc3cdd7550a', {}],
         ['/users', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }],
-      ]) assert.equal((await fetch(base + path, options)).status, 403);
+      ]) assert.equal((await fetch(base + path, options)).status, 401);
     } finally {
       await new Promise(resolve => server.close(resolve));
       await pool.end();

@@ -16,5 +16,4 @@ de un emisor de confianza, estar firmado con HS256 y esa clave, incluir
 UUID del usuario (`sub`). Si faltan credenciales válidas, la API devuelve
 `401`; si el usuario no está activo o no tiene el rol permitido, devuelve `403`.
 
-El servicio verifica tokens, pero todavía no incluye inicio de sesión, emisión
-de tokens ni alta inicial de administradores.
+Los usuarios activos obtienen el token con [`POST /auth/login`](user-auth.md).

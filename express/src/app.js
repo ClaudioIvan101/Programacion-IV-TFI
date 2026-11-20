@@ -2,12 +2,13 @@ import express from "express";
 import routes from "./routes/index.js";
 import { createCampaignRouter } from "./routes/campaigns.js";
 import { createUserRouter } from "./routes/users.js";
+import { createAuthRouter } from "./routes/auth.js";
 import { createCaptureRouter } from "./routes/capture.js";
 import { createLeadRouter } from "./routes/leads.js";
 import notFound from "./middlewares/notFound.js";
 import errorHandler from "./middlewares/errorHandler.js";
 
-export function createApp({ campaigns, users, capture, leads } = {}) {
+export function createApp({ campaigns, users, capture, leads, auth } = {}) {
   const app = express();
 
   app.disable("x-powered-by");
@@ -25,6 +26,7 @@ export function createApp({ campaigns, users, capture, leads } = {}) {
 
   if (capture !== undefined) app.use(createCaptureRouter(capture));
   if (leads !== undefined) app.use(createLeadRouter(leads));
+  if (auth !== undefined) app.use("/auth", createAuthRouter(auth));
 
   if (users !== undefined) {
     app.use("/users", createUserRouter(users));
