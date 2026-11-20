@@ -14,6 +14,7 @@ import { makeAddCampaignChannel } from "./domain/capture/addCampaignChannel.js";
 import { makeListCampaignChannels } from "./domain/capture/listCampaignChannels.js";
 import { makeCreateForm } from "./domain/capture/createForm.js";
 import { makeGetFormById } from "./domain/capture/getFormById.js";
+import { createJwtAuthenticator } from "./infra/jwtAuthenticator.js";
 import { createPostgresLeadRepository } from "./infra/leadRepository.js";
 import { makeCreateLead } from "./domain/leads/createLead.js";
 // Aquí elegimos los adaptadores y conectamos las dependencias.
@@ -28,13 +29,17 @@ export const useCases = {
     ...leadRepository,
     createLead: makeCreateLead({ leadRepository }),
   },
+  // Los casos de uso de captación comparten el mismo adaptador de persistencia.
   capture: {
     addCampaignChannel: makeAddCampaignChannel({ captureRepository }),
     listCampaignChannels: makeListCampaignChannels({ captureRepository }),
     createForm: makeCreateForm({ captureRepository }),
     getFormById: makeGetFormById({ captureRepository }),
-    // Sustituir solamente al integrar autorización real.
-    authorize: async () => false,
+    // El JWT identifica al usuario; sus permisos se consultan en la base.
+    authenticate: createJwtAuthenticator({
+      secretHex: process.env.JWT_SECRET_HEX,
+      findUserById: (id) => userRepository.findById(id),
+    }),
   },
   users: {
     createUser: makeCreateUser({ userRepository, hashPassword }),

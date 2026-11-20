@@ -8,6 +8,7 @@ import { CampaignNotFoundError, FormNotFoundError, InvalidCaptureError, Duplicat
 import { createPostgresCaptureRepository } from '../../src/infra/captureRepository.js';
 
 test('casos de uso validan y delegan sin dependencias externas', async () => {
+  // El doble del repositorio devuelve resultados controlados sin conectarse a una base.
   const repo = {
     addCampaignChannel: async (id, channel) => ({ id, channel }),
     listCampaignChannels: async (id) => id === 'missing' ? null : ['form'],
@@ -24,6 +25,7 @@ test('casos de uso validan y delegan sin dependencias externas', async () => {
 });
 
 test('repositorio parametriza y traduce exclusivamente errores conocidos', async () => {
+  // Se comprueba que los argumentos SQL se pasen por separado de la sentencia.
   const calls = [];
   const repo = createPostgresCaptureRepository({ query: async (sql, values) => { calls.push({ sql, values }); return { rows: [{ channel: 'form' }] }; } });
   await repo.addCampaignChannel('id', 'form');
@@ -33,6 +35,7 @@ test('repositorio parametriza y traduce exclusivamente errores conocidos', async
   assert.deepEqual(calls[0].values, ['id', 'form']);
   assert.deepEqual(calls[1].values, ['Nombre', null]);
   assert.ok(calls.every((call) => call.sql.includes('$1')));
+  // Se simula la restricción de unicidad que PostgreSQL aplica al par campaña/canal.
   const duplicate = createPostgresCaptureRepository({ query: async () => { throw Object.assign(new Error(), { code: '23505', constraint: 'campaign_channels_unique' }); } });
   await assert.rejects(duplicate.addCampaignChannel('id', 'form'), DuplicateChannelError);
 });
