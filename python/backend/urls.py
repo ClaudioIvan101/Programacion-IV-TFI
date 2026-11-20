@@ -6,6 +6,7 @@ from django.urls import path
 
 from .fake_provider import fake_completion
 from .responses import json_response
+from .structured_completions import structured_completions
 
 
 def probe(request, *, check_provider=False):
@@ -42,6 +43,7 @@ def demo(request, *, partial):
 
 handler404 = not_found
 urlpatterns = [
+    path("v1/structured-completions", structured_completions),
     path("health", probe),
     path("ready", probe, {"check_provider": True}),
     # Las dos rutas llaman a demo. Django pasa False para el ejemplo completo
