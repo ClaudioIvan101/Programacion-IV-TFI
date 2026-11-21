@@ -4,6 +4,7 @@
 !express/index.js
 !express/src/*.js
 !express/src/**/*.js
+!express/scripts/create-first-admin.js
 !express/tests/*.js
 !express/tests/**/*.js
 !express/database/migrations/*.sql
