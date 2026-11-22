@@ -15,7 +15,7 @@ from referencing import Registry, Resource
 ROOT = Path(__file__).resolve().parents[1]
 # Permite importar el backend también al ejecutar este archivo directamente.
 sys.path.insert(0, str(ROOT.parent))
-from python.backend.fake_provider import fake_completion
+from python.ai_gateway.infra.fake_provider import fake_completion
 
 
 SCHEMAS = list((ROOT / "schemas").glob("*.schema.json"))

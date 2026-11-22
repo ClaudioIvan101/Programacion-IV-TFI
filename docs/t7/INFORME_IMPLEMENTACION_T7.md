@@ -8,7 +8,7 @@ El adaptador permite probar respuestas del contrato T4 en el mismo proceso. La s
 
 ## Archivos y funciones
 
-- [`python/backend/fake_provider.py`](../../python/backend/fake_provider.py) contiene `fake_completion()`. Por defecto carga `response-complete.json`. Con `partial=True` carga `response-follow-up.json`, que pregunta si el presupuesto está en ARS o USD. Lee el archivo en UTF-8 y devuelve su contenido como un diccionario de Python.
+- [`python/ai_gateway/infra/fake_provider.py`](../../python/ai_gateway/infra/fake_provider.py) contiene `fake_completion()`. Por defecto carga `response-complete.json`. Con `partial=True` carga `response-follow-up.json`, que pregunta si el presupuesto está en ARS o USD. Lee el archivo en UTF-8 y devuelve su contenido como un diccionario de Python.
 - [`contracts/tests/test_contract.py`](../../contracts/tests/test_contract.py) prueba el adaptador con los ejemplos y el validador de JSON Schema existentes. El esquema de respuesta y los ejemplos de T4 se reutilizan tal como están.
 
 ## Escenarios probados

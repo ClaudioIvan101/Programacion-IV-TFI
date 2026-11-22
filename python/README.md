@@ -1,46 +1,69 @@
-# Django gateway
+# Gateway Django
 
-A minimal Django WSGI application for Python 3.13. Express and PostgreSQL
-handle business data.
+Aplicación WSGI mínima para Python 3.13. Express y PostgreSQL administran los datos
+del negocio; este servicio valida y responde solicitudes del gateway de IA.
 
-## Run and test
+## Ejecutar y verificar
 
-From this directory:
+Desde este directorio:
 
 ```sh
 python -m pip install -r requirements.txt
 python -m backend
 python -m unittest discover -s tests -v
+python -m django check --settings=backend.settings
 ```
 
-`GET /health` on `http://127.0.0.1:8000` returns `{"status": "ok"}` while
-the server is running. `GET /ready` checks that the fake provider can load both
-T4 responses and returns 503 if it cannot. Stop the server with Ctrl+C.
-`HOST` defaults to `127.0.0.1`; `PORT` defaults to `8000` and accepts decimal
-integers from 0 to 65535. Port 0 selects an available port, printed at startup.
-Set variables in the process environment; `.env` files are not loaded.
-Invalid settings or an unavailable listening socket exit with code 1 and a short
-message instead of a traceback.
+`GET /health` en `http://127.0.0.1:8000` devuelve `{"status": "ok"}` si el proceso
+responde. `GET /ready` comprueba que el proveedor falso pueda cargar las dos
+respuestas T4; devuelve 503 si no puede. Detener el servidor con Ctrl+C.
+`HOST` usa `127.0.0.1` por defecto; `PORT` usa `8000` y admite enteros entre 0 y
+65535. El puerto 0 se asigna automáticamente y se informa al iniciar. Las
+variables se leen del entorno del proceso, no de un archivo `.env`. Si la
+configuración no es válida o el puerto no está disponible, el proceso sale con
+código 1 y un mensaje breve.
 
-## Responsibilities
+## Proyecto y aplicación
 
-| File | Responsibility |
+| Módulo | Responsabilidad |
 | --- | --- |
-| `backend/config.py` | Validate settings before opening a listening socket. |
-| `backend/responses.py` | Encode JSON as UTF-8 bytes with correct length and safe headers. |
-| `backend/app.py` | Load the Django WSGI application. |
-| `backend/settings.py` | Configure allowed hosts and routing. |
-| `backend/urls.py` | Handle GET/HEAD probes, JSON 404 and 405 with `Allow`. |
-| `backend/fake_provider.py` | Return local T4 examples. |
-| `backend/__main__.py` | Start and close the development server. |
-| `backend/request_handler.py` | Omit request and HTTP parser logs containing client data. |
-| `tests/` | Cover configuration, responses, routing and real HTTP on a temporary port. |
+| `backend/settings.py`, `backend/urls.py` | Configurar el proyecto Django y delegar las rutas en la aplicación. |
+| `backend/app.py`, `backend/__main__.py` | Cargar Django como WSGI e iniciar el servidor con `python -m backend`. |
+| `backend/config.py`, `backend/request_handler.py` | Validar parámetros de arranque y omitir trazas HTTP con datos del cliente. |
+| `ai_gateway/urls.py` | Vincular cada URL con su vista Django. |
+| `ai_gateway/views.py` | Adaptador fino: precondiciones, caso de uso y respuesta. |
+| `ai_gateway/http/` | Precondiciones del contrato T4, respuestas JSON y sobre de error. |
+| `ai_gateway/services/` | Coordinar la respuesta estructurada de T4 sin depender de HTTP. |
+| `ai_gateway/validators/` | Cargar los esquemas T4 y validar solicitudes y respuestas. |
+| `ai_gateway/infra/` | Adaptador de datos sintéticos y verificador RS256 del JWT de servicio. |
+| `tests/` | Pruebas de configuración, respuestas, rutas, JWT y HTTP real en un puerto temporal. |
+
+La ruta `POST /v1/structured-completions` exige un JWT de servicio RS256 emitido
+por `core-api`, con independencia de `AI_GATEWAY_ENV`. Sin credenciales responde
+`401` con `WWW-Authenticate: Bearer`; si la clave pública no está configurada,
+responde `503`. El modo de ejecución solo habilita las rutas de demo.
+
+## Prueba HTTP Express → Django
+
+Desde la raíz, con las dependencias instaladas (`npm ci --prefix express` y
+`python -m pip install -r python/requirements.txt`):
+
+```sh
+node express/scripts/smoke-t4.mjs
+```
+
+La prueba inicia Django en un puerto local temporal. Verifica el `401` sin
+credenciales y el `200` con un JWT emitido por Express y una respuesta T4 del
+proveedor falso. No inicia Express, PostgreSQL ni Mailpit. Genera una clave RSA
+por ejecución y elimina el PEM público temporal al finalizar; la clave privada
+queda en la memoria de Node. Si necesita usar otro intérprete, indique su
+ejecutable con `T4_SMOKE_PYTHON`.
 
 ## Docker
 
-Compose serves the gateway internally at `http://ai-gateway:3100` and uses
-`/ready` as its health check. Local and Compose runs use the same single-threaded
-development server.
+Compose ejecuta el gateway en `http://ai-gateway:3100` dentro de su red y usa
+`/ready` como comprobación de salud. Docker y el entorno local conservan el
+servidor WSGI de desarrollo con un solo hilo.
 
 ## Demo inmobiliaria para el profesor
 

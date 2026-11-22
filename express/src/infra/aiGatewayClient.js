@@ -1,6 +1,7 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { z } from 'zod';
+import { T4_MAX_BODY_BYTES as maxBody } from '../domain/ai/t4Limits.js';
 
 // No se incluyen cuerpos ni errores externos en los mensajes o propiedades.
 export class AiGatewayError extends Error {
@@ -13,7 +14,6 @@ export class AiGatewayError extends Error {
 }
 
 const uuid = z.string().uuid();
-const maxBody = 100 * 1024;
 
 // Los esquemas se suministran desde una fuente confiable en composición.
 // No se descargan referencias ni se mantiene una copia paralela en Zod.

@@ -1,20 +1,7 @@
+import { inTransaction } from './transaction.js';
+
 const qualificationColumns = 'q.id, q.lead_id AS "leadId", q.rule_set_version AS "ruleSetVersion", q.decision, q.score, q.breakdown, q.created_at AS "createdAt"';
 const qualificationFacts = 'l.needs, l.urgency, l.budget_amount::double precision AS "budgetAmount", l.budget_currency AS "budgetCurrency"';
-
-async function inTransaction(pool, execute) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const output = await execute(client);
-    await client.query('COMMIT');
-    return output;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 export function createPostgresQualificationRepository(pool) {
   return {

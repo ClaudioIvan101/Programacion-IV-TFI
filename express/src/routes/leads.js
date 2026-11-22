@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { InvalidLeadError } from '../domain/leads/createLead.js';
+import { ConversationTurnError } from '../domain/ai/runConversationTurn.js';
+import { requireUserRole } from '../middlewares/requireUserRole.js';
 
 const id = z.string().uuid();
 // Evitamos que la codificación UTF-8 reemplace caracteres inválidos o envíe un carácter nulo a PostgreSQL.
@@ -22,6 +24,26 @@ const messageBody = z.strictObject({
   role: z.enum(['lead', 'assistant']),
   content: z.string().max(4000).refine((value) => value.trim().length > 0 && validPostgresText(value)),
 });
+// Un turno recibe solo el texto nuevo del lead: el historial y el contexto ya
+// están persistidos y los arma el caso de uso.
+const turnBody = z.strictObject({
+  content: z.string().max(4000).refine((value) => value.trim().length > 0 && validPostgresText(value)),
+});
+
+// El caso de uso clasifica el fallo con un código; el adaptador HTTP decide el
+// estado. Un código desconocido cae en 500 para no disfrazar un defecto nuestro.
+const turnErrorStatus = new Map([
+  ['TIMEOUT', 504],
+  ['DEADLINE_EXCEEDED', 504],
+  ['CONFIG', 503],
+  ['CREDENTIALS', 503],
+  ['TRANSPORT', 503],
+  ['SERVICE_UNAVAILABLE', 503],
+  ['INVALID_PROVIDER_RESPONSE', 502],
+  ['INVALID_RESPONSE', 502],
+  ['HTTP_ERROR', 502],
+  ['TURN_CONFLICT', 409],
+]);
 
 // Validamos los parámetros antes de pasar datos a PostgreSQL y usamos el mismo contrato de errores de la API.
 function validate(handler, schema) {
@@ -83,6 +105,29 @@ export function createLeadRouter(leads) {
     const message = await leads.getMessage(req.params.conversationId, req.params.messageId);
     return message ? res.json(message) : res.status(404).json({ error: 'Mensaje no encontrado.' });
   }));
+
+  // Un turno toma el mensaje del lead, llama al gateway de IA, persiste ambos
+  // mensajes con el contexto actualizado y devuelve la próxima pregunta.
+  // La respuesta contiene contexto del lead; esta operación queda restringida a administración.
+  const protectTurn = requireUserRole(leads.authenticate ?? (async () => null), 'administrador');
+  router.post('/conversations/:conversationId/turn', protectTurn, validate(async (req, res, body) => {
+    // Igual que el login: si el gateway no está configurado, la operación no
+    // existe para el cliente y responde 503 sin tocar la conversación.
+    if (!leads.runConversationTurn) {
+      return res.status(503).json({ error: 'Asistente no disponible.' });
+    }
+    try {
+      const turn = await leads.runConversationTurn({
+        conversationId: req.params.conversationId,
+        content: body.content,
+      });
+      return turn ? res.json(turn) : res.status(404).json({ error: 'Conversación no encontrada.' });
+    } catch (error) {
+      if (!(error instanceof ConversationTurnError)) throw error;
+      const status = turnErrorStatus.get(error.code) ?? 500;
+      return res.status(status).json({ error: 'No se pudo completar el turno.' });
+    }
+  }, turnBody));
 
   return router;
 }

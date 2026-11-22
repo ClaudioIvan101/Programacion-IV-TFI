@@ -1,0 +1,31 @@
+# La integración T4 requiere claves locales; el entorno base no las monta.
+services:
+  core-api:
+    environment:
+      AI_GATEWAY_URL: http://ai-gateway:3100
+      SERVICE_JWT_PRIVATE_KEY_FILE: /run/secrets/service_jwt_private
+    secrets:
+      - source: service_jwt_private
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    depends_on:
+      ai-gateway:
+        condition: service_healthy
+
+  ai-gateway:
+    environment:
+      AI_GATEWAY_SERVICE_JWT_PUBLIC_KEY_FILE: /run/secrets/service_jwt_public
+    secrets:
+      - source: service_jwt_public
+        uid: "10001"
+        gid: "10001"
+        mode: 0400
+
+# El lanzador entrega el PEM a Compose para montarlo con el UID del servicio.
+# Una fuente de archivo montaría los permisos del host sin remapearlos.
+secrets:
+  service_jwt_private:
+    environment: T4_SERVICE_JWT_PRIVATE_PEM
+  service_jwt_public:
+    environment: T4_SERVICE_JWT_PUBLIC_PEM
