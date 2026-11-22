@@ -21,6 +21,7 @@ import { makeCreateLead } from "./domain/leads/createLead.js";
 import { makeApplyQualificationData } from "./domain/leads/applyQualificationData.js";
 import { makeQualificationUseCases } from "./domain/leads/qualifyLead.js";
 import { createPostgresQualificationRepository } from "./infra/qualificationRepository.js";
+import { createPostgresReadiness } from "./infra/postgresReadiness.js";
 // Aquí elegimos los adaptadores y conectamos las dependencias.
 export const pool = createPostgresPool();
 const campaignRepository = createPostgresCampaignRepository(pool);
@@ -37,6 +38,7 @@ const authenticate = createJwtAuthenticator({
 const issueToken = createJwtIssuer({ secretHex });
 // Agrupamos los casos de uso por funcionalidad.
 export const useCases = {
+  checkReadiness: createPostgresReadiness(pool),
   auth: {
     login: issueToken ? makeLogin({ userRepository, verifyPassword, issueToken }) : null,
   },
