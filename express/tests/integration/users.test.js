@@ -70,6 +70,11 @@ test('usuarios: denegar por defecto todas las operaciones', async (t) => {
 
 test('la composición real deniega los tres endpoints sin conectar PostgreSQL', () => {
   const composition = JSON.stringify(new URL('../../src/composition.js', import.meta.url).href);
+  // El arranque sin credenciales no debe heredar la configuración local de T4 o del login.
+  const env = { ...process.env, PGHOST: '127.0.0.1', PGPORT: '5432', PGDATABASE: 'test', PGUSER: 'test', PGPASSWORD: 'test' };
+  delete env.AI_GATEWAY_URL;
+  delete env.SERVICE_JWT_PRIVATE_KEY_FILE;
+  delete env.JWT_SECRET_HEX;
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
     const { app, pool } = await import(${composition});
@@ -87,8 +92,9 @@ test('la composición real deniega los tres endpoints sin conectar PostgreSQL', 
       await pool.end();
     }
   `], {
-    env: { ...process.env, PGHOST: '127.0.0.1', PGPORT: '5432', PGDATABASE: 'test', PGUSER: 'test', PGPASSWORD: 'test' },
-    encoding: 'utf8', timeout: 5000,
+    env,
+    // Node y Express compiten por CPU con las otras suites de integración.
+    encoding: 'utf8', timeout: 15_000,
   });
   assert.equal(result.error, undefined);
   assert.equal(result.status, 0, result.stderr);

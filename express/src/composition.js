@@ -23,8 +23,6 @@ import { makeQualificationUseCases } from "./domain/leads/qualifyLead.js";
 import { createPostgresQualificationRepository } from "./infra/qualificationRepository.js";
 import { createPostgresReadiness } from "./infra/postgresReadiness.js";
 import { createPostgresConversationTurnRepository } from "./infra/conversationTurnRepository.js";
-import { createServiceTokenProvider } from "./infra/serviceJwtIssuer.js";
-import { createAiGatewayClient } from "./infra/aiGatewayClient.js";
 import { makeRunConversationTurn } from "./domain/ai/runConversationTurn.js";
 import { readFile } from "node:fs/promises";
 
@@ -69,6 +67,11 @@ async function buildConversationTurn({ conversationTurnRepository }) {
       "No se pudo leer SERVICE_JWT_PRIVATE_KEY_FILE. Genere el par con scripts/generate-service-jwt-keys.mjs.",
     );
   }
+  // Si el turno está deshabilitado no se cargan sus adaptadores ni AJV.
+  const [{ createServiceTokenProvider }, { createAiGatewayClient }] = await Promise.all([
+    import("./infra/serviceJwtIssuer.js"),
+    import("./infra/aiGatewayClient.js"),
+  ]);
   const getServiceToken = await createServiceTokenProvider({ privateKeyPem });
 
   const aiGateway = createAiGatewayClient({
