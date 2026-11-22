@@ -56,11 +56,36 @@ está ocupado, usar otro puerto de host con un archivo Compose local de
 sobrescritura. Mantener `--quiet` al compartir la validación de la configuración
 para evitar exponer contraseñas.
 
+### Habilitar el turno conversacional T4
+
+El Compose base arranca sin claves de servicio y no habilita el turno. Para
+probar la integración real entre Express y el gateway, generar las claves una
+sola vez y usar el lanzador del archivo Compose opcional:
+
+```bash
+node scripts/generate-service-jwt-keys.mjs
+node scripts/compose-t4.mjs config --quiet
+node scripts/compose-t4.mjs up -d --build --wait
+node scripts/compose-t4.mjs exec core-api npm run migrate
+```
+
+El generador no sobrescribe claves. Los archivos en `secrets/` no se versionan.
+El lanzador pasa los PEM solo a Compose, que los monta como archivos de solo
+lectura: la clave privada en Express y la pública en Django, con el usuario
+de cada contenedor. Se requiere soporte de [secretos de origen `environment`](https://docs.docker.com/reference/compose-file/container-spec/#secrets)
+en Docker Compose. Para
+llamar al turno desde Express se necesita además un JWT de usuario emitido por
+`POST /auth/login` para un administrador activo; configurar `JWT_SECRET_HEX`
+localmente y crear el primer administrador mediante el procedimiento de
+[arranque de autenticación](express/docs/capture-auth.md).
+
 ### Detener y conservar los datos
 
 ```bash
 docker compose down
 ```
+
+Si se habilitó el turno T4, usar `node scripts/compose-t4.mjs down`.
 
 Detiene y elimina los contenedores y la red, pero conserva el volumen de
 PostgreSQL. **No agregar `-v`/`--volumes`** salvo que se quiera borrar la base.
