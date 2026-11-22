@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from backend.responses import json_response
+from ai_gateway.http.responses import json_response
 
 
 class ResponseTests(unittest.TestCase):

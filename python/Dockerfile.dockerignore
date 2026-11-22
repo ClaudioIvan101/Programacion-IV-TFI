@@ -1,5 +1,6 @@
 **
 !python/backend/*.py
+!python/ai_gateway/**/*.py
 !python/requirements.txt
 !contracts/examples/valid/response-*.json
 !contracts/schemas/*.schema.json

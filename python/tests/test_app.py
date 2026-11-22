@@ -52,7 +52,7 @@ class AppTests(unittest.TestCase):
     def test_ready_reports_fake_provider_failure_without_affecting_health(self):
         for error in (FileNotFoundError("private path"), ValueError("private content")):
             with self.subTest(error=type(error)):
-                with patch("backend.urls.fake_completion", side_effect=[{}, error]) as fake:
+                with patch("ai_gateway.views.fake_completion", side_effect=[{}, error]) as fake:
                     health_status, _, _ = self.request()
                     fake.assert_not_called()
                     status, _, body = self.request("/ready")
@@ -77,7 +77,7 @@ class AppTests(unittest.TestCase):
 
     @override_settings(DEMO_ENABLED=False)
     def test_demo_is_unavailable_outside_development(self):
-        with patch("backend.urls.fake_completion") as fake:
+        with patch("ai_gateway.views.fake_completion") as fake:
             for scenario in ("complete", "partial"):
                 with self.subTest(scenario=scenario):
                     status, _, _ = self.request(f"/demo/{scenario}")

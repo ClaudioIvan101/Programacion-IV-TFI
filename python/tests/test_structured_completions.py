@@ -1,10 +1,23 @@
+"""Pruebas HTTP del endpoint de completados estructurados (contrato T4).
+
+Cada prueba firma un JWT de servicio real con una clave RSA efímera, de modo que
+se ejercita exactamente el mismo verificador que usará Express en producción:
+no se parchea la autenticación.
+"""
+
 import json
+import tempfile
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+import jwt
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from django.test import Client, SimpleTestCase, override_settings
 
+from ai_gateway.infra.service_jwt import load_service_jwt_verifier
 from backend.app import app  # Inicializa Django para ejecutar unittest sin manage.py.
 
 
@@ -14,27 +27,104 @@ REQUEST_ID = "8e76b390-b948-4a72-9db7-82af3325c910"
 
 
 def example(name):
+    """Carga un ejemplo JSON del contrato T4."""
     return json.loads((EXAMPLES / f"{name}.json").read_text(encoding="utf-8"))
 
 
-@override_settings(DEMO_ENABLED=True)
 class StructuredCompletionsTests(SimpleTestCase):
-    def post(self, body, *, deadline_seconds=10, **headers):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Par de claves efímero: la privada firma, la pública configura Django.
+        cls.private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        cls.other_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+        cls.directory = tempfile.TemporaryDirectory()
+        cls.public_file = Path(cls.directory.name) / "service-public.pem"
+        cls.public_file.write_bytes(
+            cls.private_key.public_key().public_bytes(
+                serialization.Encoding.PEM,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+        )
+        # Se inyecta la ruta como si fuera configuración de despliegue.
+        cls.enterClassContext(
+            override_settings(SERVICE_JWT_PUBLIC_KEY_FILE=str(cls.public_file))
+        )
+        # El verificador está cacheado por ruta; se limpia al cambiar de suite.
+        load_service_jwt_verifier.cache_clear()
+
+    @classmethod
+    def tearDownClass(cls):
+        load_service_jwt_verifier.cache_clear()
+        cls.directory.cleanup()
+        super().tearDownClass()
+
+    def service_token(self, *, key=None, **overrides):
+        """Firma un JWT de servicio con el perfil T4 acordado con Express."""
+        now = int(time.time())
+        claims = {
+            "iss": "core-api",
+            "aud": "ai-gateway",
+            "sub": "core-api",
+            "scope": "ai:structured-completions",
+            "iat": now,
+            "nbf": now,
+            "exp": now + 60,
+        }
+        claims.update(overrides)
+        token = jwt.encode(
+            claims,
+            key or self.private_key,
+            algorithm="RS256",
+            headers={"typ": "JWT"},
+        )
+        return f"Bearer {token}"
+
+    def post(self, body, *, deadline_seconds=10, authorization="valid", headers=None):
+        """Envía el cuerpo tal cual, con los encabezados del contrato T4.
+
+        `authorization="valid"` firma un token nuevo; `None` lo omite.
+        """
         deadline = datetime.now(timezone.utc) + timedelta(seconds=deadline_seconds)
         request_headers = {
             "X-Request-Id": REQUEST_ID,
             "Idempotency-Key": "operacion-001",
             "X-Deadline": deadline.isoformat().replace("+00:00", "Z"),
-            **headers,
+            **(headers or {}),
         }
-        return Client().post(URL, body, content_type="application/json", headers=request_headers, HTTP_HOST="ai-gateway")
+        if authorization == "valid":
+            request_headers["Authorization"] = self.service_token()
+        elif authorization is not None:
+            request_headers["Authorization"] = authorization
+
+        if isinstance(body, (dict, list)):
+            body = json.dumps(body, ensure_ascii=False).encode("utf-8")
+
+        # generic envía los bytes exactos, sin serializar de nuevo.
+        return Client().generic(
+            "POST",
+            URL,
+            data=body,
+            content_type="application/json",
+            headers=request_headers,
+            HTTP_HOST="ai-gateway",
+        )
 
     def assert_error(self, response, status, code, request_id=REQUEST_ID):
+        """Comprueba el sobre de error uniforme del contrato T4."""
         self.assertEqual(response.status_code, status)
         self.assertEqual(response.headers.get("X-Request-Id"), request_id)
-        self.assertEqual(response.json()["error"], {
-            "code": code, "message": "No se pudo completar la solicitud.", "request_id": request_id,
-        })
+        self.assertEqual(
+            response.json()["error"],
+            {
+                "code": code,
+                "message": "No se pudo completar la solicitud.",
+                "request_id": request_id,
+            },
+        )
+
+    # --- Camino feliz -------------------------------------------------------
 
     def test_returns_the_matching_t4_example(self):
         for case, expected in [("complete", "complete"), ("partial", "follow-up")]:
@@ -48,32 +138,83 @@ class StructuredCompletionsTests(SimpleTestCase):
                 fixture.pop("latency_ms")
                 self.assertEqual(body, fixture)
 
+    # --- Autenticación del JWT de servicio ---------------------------------
+
+    def test_rejects_a_request_without_credentials(self):
+        self.assert_error(self.post(example("request-complete"), authorization=None), 401, "UNAUTHENTICATED")
+
+    def test_rejects_a_token_signed_by_another_key(self):
+        forged = self.service_token(key=self.other_key)
+        self.assert_error(self.post(example("request-complete"), authorization=forged), 401, "UNAUTHENTICATED")
+
+    def test_rejects_an_expired_token(self):
+        now = int(time.time())
+        expired = self.service_token(iat=now - 120, nbf=now - 120, exp=now - 60)
+        self.assert_error(self.post(example("request-complete"), authorization=expired), 401, "UNAUTHENTICATED")
+
+    def test_rejects_a_token_with_the_wrong_scope(self):
+        wrong = self.service_token(scope="ai:otro")
+        self.assert_error(self.post(example("request-complete"), authorization=wrong), 401, "UNAUTHENTICATED")
+
+    def test_challenges_with_bearer_on_rejection(self):
+        # El 401 debe incluir el desafío WWW-Authenticate del contrato.
+        response = self.post(example("request-complete"), authorization=None)
+        self.assertEqual(response["WWW-Authenticate"], "Bearer")
+
+    @override_settings(DEMO_ENABLED=True)
+    def test_requires_credentials_even_in_development(self):
+        # El modo de ejecución no habilita el acceso: solo un token válido lo hace.
+        self.assert_error(self.post(example("request-complete"), authorization=None), 401, "UNAUTHENTICATED")
+
+    @override_settings(SERVICE_JWT_PUBLIC_KEY_FILE=None)
+    def test_fails_closed_when_the_public_key_is_not_configured(self):
+        # Sin clave pública no se puede autenticar: 503, no 401 ni 200.
+        response = self.post(example("request-complete"))
+        self.assert_error(response, 503, "SERVICE_UNAVAILABLE")
+        self.assertEqual(response["Retry-After"], "1")
+
+    # --- Precondiciones del contrato ---------------------------------------
+
     def test_rejects_malformed_json_and_a_non_t4_body(self):
-        self.assert_error(self.post("{"), 400, "INVALID_REQUEST")
-        self.assert_error(self.post({**example("request-complete"), "score": 99}), 400, "INVALID_REQUEST")
-        self.assert_error(self.post(example("request-partial"), **{"Idempotency-Key": ""}), 400, "INVALID_REQUEST")
-        self.assert_error(self.post(example("request-partial"), **{"X-Request-Id": "invalid"}), 400, "INVALID_REQUEST", None)
+        self.assert_error(self.post(b"{"), 400, "INVALID_REQUEST")
+        self.assert_error(
+            self.post({**example("request-complete"), "score": 99}), 400, "INVALID_REQUEST"
+        )
+        self.assert_error(
+            self.post(example("request-partial"), headers={"Idempotency-Key": ""}),
+            400,
+            "INVALID_REQUEST",
+        )
+        self.assert_error(
+            self.post(example("request-partial"), headers={"X-Request-Id": "invalid"}),
+            400,
+            "INVALID_REQUEST",
+            None,
+        )
         self.assert_error(self.post(example("request-partial"), deadline_seconds=16), 400, "INVALID_REQUEST")
 
     def test_applies_the_body_limit_and_deadline(self):
-        self.assert_error(self.post(" " * (102400 + 1)), 413, "PAYLOAD_TOO_LARGE")
+        self.assert_error(self.post(b" " * (102400 + 1)), 413, "PAYLOAD_TOO_LARGE")
         self.assert_error(self.post(example("request-complete"), deadline_seconds=-1), 504, "DEADLINE_EXCEEDED")
 
     def test_requires_post(self):
+        # El método se valida antes que la autenticación: 405 sin credenciales.
         response = Client().get(URL, HTTP_HOST="ai-gateway")
         self.assert_error(response, 405, "INVALID_REQUEST", None)
         self.assertEqual(response["Allow"], "POST")
 
+    # --- Fallos del proveedor ----------------------------------------------
+
     def test_handles_provider_failures(self):
-        with patch("backend.structured_completions.fake_completion", return_value={"bad": True}):
+        with patch(
+            "ai_gateway.services.structured_completions.fake_completion",
+            return_value={"bad": True},
+        ):
             self.assert_error(self.post(example("request-complete")), 502, "INVALID_PROVIDER_RESPONSE")
-        with patch("backend.structured_completions.fake_completion", side_effect=FileNotFoundError("private")):
+        with patch(
+            "ai_gateway.services.structured_completions.fake_completion",
+            side_effect=FileNotFoundError("private"),
+        ):
             response = self.post(example("request-complete"))
             self.assert_error(response, 503, "SERVICE_UNAVAILABLE")
             self.assertEqual(response["Retry-After"], "1")
-
-    @override_settings(DEMO_ENABLED=False)
-    def test_fails_closed_until_jwt_is_connected(self):
-        response = self.post(example("request-complete"), Authorization="Bearer cualquier-valor")
-        self.assert_error(response, 401, "UNAUTHENTICATED")
-        self.assertEqual(response["WWW-Authenticate"], "Bearer")
