@@ -21,6 +21,7 @@ import { makeCreateLead } from "./domain/leads/createLead.js";
 import { makeApplyQualificationData } from "./domain/leads/applyQualificationData.js";
 import { makeQualificationUseCases } from "./domain/leads/qualifyLead.js";
 import { createPostgresQualificationRepository } from "./infra/qualificationRepository.js";
+import { createPostgresReadiness } from "./infra/postgresReadiness.js";
 import { createPostgresConversationTurnRepository } from "./infra/conversationTurnRepository.js";
 import { createServiceTokenProvider } from "./infra/serviceJwtIssuer.js";
 import { createAiGatewayClient } from "./infra/aiGatewayClient.js";
@@ -105,6 +106,7 @@ const authenticate = createJwtAuthenticator({
 const issueToken = createJwtIssuer({ secretHex });
 // Agrupamos los casos de uso por funcionalidad.
 export const useCases = {
+  checkReadiness: createPostgresReadiness(pool),
   auth: {
     login: issueToken ? makeLogin({ userRepository, verifyPassword, issueToken }) : null,
   },
