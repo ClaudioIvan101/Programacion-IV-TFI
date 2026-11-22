@@ -41,7 +41,9 @@ export const useCases = {
     login: issueToken ? makeLogin({ userRepository, verifyPassword, issueToken }) : null,
   },
   leads: {
+    // Copia métodos como listLeads y createMessage al objeto que recibe el router.
     ...leadRepository,
+    // Usa el caso de uso que aplica las reglas de negocio antes de guardar el lead.
     createLead: makeCreateLead({ leadRepository }),
   },
   // Los casos de uso de captación comparten el mismo adaptador de persistencia.
