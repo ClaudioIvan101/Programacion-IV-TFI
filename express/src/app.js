@@ -28,6 +28,7 @@ export function createApp({ campaigns, users, capture, leads, auth, qualificatio
   app.get("/ready", createReadinessController(checkReadiness));
 
   if (capture !== undefined) app.use(createCaptureRouter(capture));
+  // Registra las rutas de leads, conversaciones y mensajes en Express.
   if (leads !== undefined) app.use(createLeadRouter(leads));
   if (qualification !== undefined) app.use(createQualificationRouter(qualification));
   if (auth !== undefined) app.use("/auth", createAuthRouter(auth));

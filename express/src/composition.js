@@ -114,7 +114,9 @@ export const useCases = {
     login: issueToken ? makeLogin({ userRepository, verifyPassword, issueToken }) : null,
   },
   leads: {
+    // Copia métodos como listLeads y createMessage al objeto que recibe el router.
     ...leadRepository,
+    // Usa el caso de uso que aplica las reglas de negocio antes de guardar el lead.
     createLead: makeCreateLead({ leadRepository }),
     // Null cuando el gateway de IA no está configurado; el router responde 503.
     authenticate,
