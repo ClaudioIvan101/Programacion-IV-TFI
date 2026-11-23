@@ -4,6 +4,7 @@ const publicColumns = 'id, name, email, role, status, created_at AS "createdAt",
 
 export function createPostgresUserRepository(pool) {
   return {
+    // Guarda el usuario con el hash de su contraseña.
     async create({ name, email, passwordHash, role }) {
       try {
         const result = await pool.query(
@@ -18,12 +19,15 @@ export function createPostgresUserRepository(pool) {
         throw error;
       }
     },
+    // Lista los usuarios en orden de creación.
     async list() {
       return (await pool.query(`SELECT ${publicColumns} FROM users ORDER BY created_at, id`)).rows;
     },
+    // Busca un usuario específico por su ID.
     async findById(id) {
       return (await pool.query(`SELECT ${publicColumns} FROM users WHERE id = $1`, [id])).rows[0] ?? null;
     },
+    // Busca por email el ID, el estado y el hash que necesita el login.
     async findCredentialsByEmail(email) {
       // Solo el login necesita leer el hash. La búsqueda usa el índice de lower(email).
       return (await pool.query(
