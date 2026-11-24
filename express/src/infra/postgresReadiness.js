@@ -6,6 +6,8 @@ export const REQUIRED_MIGRATIONS = Object.freeze([
   '004_create_capture_sources',
   '005_create_leads_conversations_messages',
   '006_create_lead_qualifications',
+  '007_add_conversation_context',
+  '008_create_lead_assignments',
 ]);
 
 export function createPostgresReadiness(pool, { timeoutMs = 1500, cacheMs = 1000 } = {}) {
