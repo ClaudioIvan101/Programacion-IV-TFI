@@ -1,5 +1,5 @@
 import { Alert, Button, Group, Modal, Select, SimpleGrid, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CampaignPager, CaptureRequestState, useCampaignPage } from '../capture/campaignPage.jsx';
 import { channelOptions, createCaptureApi } from '../capture/captureApi.js';
 
@@ -15,6 +15,7 @@ export function LeadRegistration({ accessToken, onUnauthorized, onCreate, onCrea
   const [origin, setOrigin] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const registration = useRef(null);
   const campaignId = campaign?.value ?? null;
   const campaignChoices = (result?.data?.items ?? []).map(({ id, name }) => ({ value: id, label: name }));
   if (campaign && !campaignChoices.some(({ value }) => value === campaignId)) campaignChoices.unshift(campaign);
@@ -51,15 +52,20 @@ export function LeadRegistration({ accessToken, onUnauthorized, onCreate, onCrea
     const fields = new FormData(event.currentTarget);
     const text = (name) => fields.get(name).trim() || null;
     const amount = text('budgetAmount');
+    const body = {
+      name: text('name'), email: text('email'), phone: text('phone'),
+      needs: text('needs'), urgency: text('urgency'),
+      budgetAmount: amount === null ? null : Number(amount), budgetCurrency: currency,
+      campaignId, channel, formId,
+    };
+    const snapshot = JSON.stringify(body);
+    if (registration.current?.snapshot !== snapshot) {
+      registration.current = { snapshot, id: crypto.randomUUID() };
+    }
     setError('');
     setSaving(true);
     try {
-      const lead = await onCreate({
-        name: text('name'), email: text('email'), phone: text('phone'),
-        needs: text('needs'), urgency: text('urgency'),
-        budgetAmount: amount === null ? null : Number(amount), budgetCurrency: currency,
-        campaignId, channel, formId,
-      });
+      const lead = await onCreate(body, registration.current.id);
       onCreated(lead);
     } catch (failure) {
       setError(failure.message);

@@ -1,8 +1,9 @@
 export class InvalidLeadError extends Error {}
+export class LeadRegistrationConflictError extends Error {}
 
 export function makeCreateLead({ leadRepository }) {
   // En input llegan los datos que la ruta POST /leads ya validó.
-  return async function createLead(input) {
+  return async function createLead(input, registrationId) {
     const { formId, channel, budgetAmount, budgetCurrency } = input;
     // Si llega un formId y el canal es distinto de 'form', se corta el alta.
     if (formId != null && channel !== 'form') {
@@ -14,7 +15,7 @@ export function makeCreateLead({ leadRepository }) {
     }
 
     // La persistencia comprueba las relaciones en la misma operación que registra el lead.
-    const lead = await leadRepository.createLead(input);
+    const lead = await leadRepository.createLead(input, registrationId);
     if (!lead) throw new InvalidLeadError('Origen del lead inválido.');
     return lead;
   };

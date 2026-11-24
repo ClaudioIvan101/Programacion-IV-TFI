@@ -1,3 +1,5 @@
+import { LeadRegistrationConflictError } from '../domain/leads/createLead.js';
+
 const leadColumns = `id, name, email, phone, campaign_id AS "campaignId", channel,
   form_id AS "formId", needs, budget_amount::double precision AS "budgetAmount",
   budget_currency AS "budgetCurrency", urgency, status, created_at AS "createdAt"`;
@@ -10,20 +12,36 @@ const originForeignKeys = new Set([
 export function createPostgresLeadRepository(db) {
   return {
     // 1. Guarda un lead con los datos recibidos y devuelve el registro creado.
-    async createLead({ name, email, phone, campaignId, channel, formId, needs, budgetAmount, budgetCurrency, urgency }) {
+    async createLead({ name, email, phone, campaignId, channel, formId, needs, budgetAmount, budgetCurrency, urgency }, registrationId) {
+      const fields = {
+        name, email, phone, campaignId: campaignId?.toLowerCase(), channel, formId: formId?.toLowerCase(),
+        needs, budgetAmount, budgetCurrency, urgency,
+      };
       try {
         // Si se informan ambos IDs, comprobamos y bloqueamos el formulario durante el alta.
         // El INSERT conserva la campaña que envió el cliente, incluso cuando es null.
-        const { rows } = await db.query(
-          `INSERT INTO leads (name, email, phone, campaign_id, channel, form_id, needs, budget_amount, budget_currency, urgency)
-           SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+        const { rows: [created] } = await db.query({
+          text: `INSERT INTO leads (name, email, phone, campaign_id, channel, form_id, needs, budget_amount, budget_currency, urgency, id)
+           SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, COALESCE($11::uuid, gen_random_uuid())
            WHERE $4::uuid IS NULL OR $6::uuid IS NULL OR EXISTS (
              SELECT 1 FROM forms WHERE id = $6 AND campaign_id = $4 FOR SHARE
            )
+           ON CONFLICT (id) DO NOTHING
            RETURNING ${leadColumns}`,
-          [name, email, phone, campaignId, channel, formId, needs, budgetAmount, budgetCurrency, urgency],
+          values: [...Object.values(fields), registrationId],
+          query_timeout: 10_000,
+        });
+        if (created || !registrationId) return created ?? null;
+
+        // Una solicitud que perdió la respuesta puede recuperar el alta confirmada.
+        const { rows: [registered] } = await db.query(
+          `SELECT ${leadColumns} FROM leads WHERE id = $1`, [registrationId],
         );
-        return rows[0] ?? null;
+        if (!registered) return null;
+        if (Object.entries(fields).some(([field, value]) => registered[field] !== (value ?? null))) {
+          throw new LeadRegistrationConflictError('La clave de registro ya fue usada con otros datos.');
+        }
+        return registered;
       } catch (error) {
         if (error.code === '23503' && originForeignKeys.has(error.constraint)) return null;
         throw error;
