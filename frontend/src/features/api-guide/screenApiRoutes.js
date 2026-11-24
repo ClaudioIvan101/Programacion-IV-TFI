@@ -25,8 +25,10 @@ export const screenApiRoutes = {
     ['GET /api/campaigns', 'Carga las campañas disponibles para seleccionar.', 'campaigns'],
     ['GET /api/campaigns/:id/channels', 'Lista los canales de la campaña.', 'capture'],
     ['POST /api/campaigns/:id/channels', 'Agrega un canal a la campaña.', 'capture'],
-    ['GET /api/campaigns/:id/forms', 'Lista los formularios asociados a la campaña.', 'capture'],
-    ['POST /api/forms', 'Crea un formulario asociado a la campaña.', 'capture'],
+    ['GET /api/forms', 'Lista formularios con campaña o sin ella.', 'capture'],
+    ['POST /api/forms', 'Crea un formulario con campaña opcional.', 'capture'],
+    ['GET /api/public/forms/:id', 'Abre un formulario habilitado sin iniciar sesión.', 'capture'],
+    ['POST /api/public/forms/:id', 'Registra una consulta y conserva su origen.', 'capture'],
   ],
   calificacion: [
     ['GET /api/leads', 'Carga los interesados que se pueden calificar.', 'leads'],
