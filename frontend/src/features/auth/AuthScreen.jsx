@@ -6,7 +6,7 @@ import { Workspace } from '../workspace/Workspace.jsx';
 import { LoginForm } from './LoginForm.jsx';
 import './auth.css';
 
-export function AuthScreen() {
+export function AuthScreen({ paused = false }) {
   const [{ session, notice }, setAuth] = useState({ session: null, notice: '' });
 
   const expireSession = useCallback(() => {
@@ -26,6 +26,7 @@ export function AuthScreen() {
     setAuth({ session: nextSession, notice: '' });
   }
 
+  if (paused) return null;
   if (session) return (
     <Workspace session={session} onLogout={() => setAuth({ session: null, notice: '' })} onUnauthorized={expireSession} />
   );

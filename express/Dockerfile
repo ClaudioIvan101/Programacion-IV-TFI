@@ -3,7 +3,9 @@ FROM node:22-bookworm-slim
 WORKDIR /app
 
 COPY express/package.json express/package-lock.json ./
-RUN npm ci
+RUN --mount=type=secret,id=npm_registry_ca \
+    if [ -f /run/secrets/npm_registry_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/npm_registry_ca; fi; \
+    npm ci
 
 COPY --chown=node:node express/index.js ./
 COPY --chown=node:node express/src ./src

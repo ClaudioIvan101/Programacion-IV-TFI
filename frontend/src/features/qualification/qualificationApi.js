@@ -9,6 +9,40 @@ export function qualificationData({ needs, urgency, budgetAmount, budgetCurrency
   };
 }
 
+export function hasUnconfirmedFacts(draft, saved) {
+  const clean = (value) => String(value ?? '').trim();
+  const amount = (value) => clean(value) === '' ? null : Number(value);
+  return ['needs', 'urgency', 'budgetCurrency'].some((key) => clean(draft[key]) !== clean(saved[key])) ||
+    amount(draft.budgetAmount) !== amount(saved.budgetAmount);
+}
+
+export function ruleSetData(threshold, pointsByType, currency, minimumAmount) {
+  const config = { threshold: Number(threshold), rules: [] };
+  if (!Number.isInteger(config.threshold) || config.threshold < 1 || config.threshold > 1_000_000) {
+    throw new Error('Ingrese un umbral entero entre 1 y 1.000.000.');
+  }
+  for (const type of ['hasNeeds', 'hasUrgency', 'minimumBudget']) {
+    const raw = pointsByType[type];
+    if (raw === '' || raw == null) continue;
+    const points = Number(raw);
+    if (!Number.isInteger(points) || Math.abs(points) > 1_000_000) {
+      throw new Error('Los puntos deben ser enteros entre −1.000.000 y 1.000.000.');
+    }
+    const rule = { type, points };
+    if (type === 'minimumBudget') {
+      const amount = Number(minimumAmount);
+      if (minimumAmount === '' || minimumAmount == null || !Number.isFinite(amount) ||
+          amount < 0 || amount > 1_000_000_000_000 || !['ARS', 'USD'].includes(currency)) {
+        throw new Error('Indique un monto mínimo válido y su moneda.');
+      }
+      Object.assign(rule, { currency, minimumAmount: amount });
+    }
+    config.rules.push(rule);
+  }
+  if (!config.rules.length) throw new Error('Configure al menos un criterio.');
+  return config;
+}
+
 export function qualificationApi(token, onUnauthorized, fetcher = fetch) {
   async function request(path, { method = 'GET', body, signal } = {}) {
     const response = await fetcher('/api' + path, {
@@ -32,6 +66,7 @@ export function qualificationApi(token, onUnauthorized, fetcher = fetch) {
   return {
     leads: (signal) => request('/leads', { signal }),
     conversations: (id, signal) => request(leadPath(id) + '/conversations', { signal }),
+    conversationContext: (id, signal) => request('/conversations/' + encodeURIComponent(id) + '/context', { signal }),
     history: (id, signal) => request(leadPath(id) + '/qualifications', { signal }),
     saveFacts: (id, conversation, data) => request(
       leadPath(id) + '/conversations/' + encodeURIComponent(conversation) + '/qualification-data',

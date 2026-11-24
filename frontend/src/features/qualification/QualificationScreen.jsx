@@ -3,7 +3,9 @@ import {
   Alert, Badge, Button, Divider, Group, Loader, NumberInput, Paper, Select,
   SimpleGrid, Stack, Text, Textarea, Title,
 } from '@mantine/core';
-import { qualificationApi, qualificationData } from './qualificationApi.js';
+import { hasUnconfirmedFacts, qualificationApi, qualificationData, ruleSetData } from './qualificationApi.js';
+import { conversationSuggestions } from '../chat/conversationSuggestions.js';
+import { leadRoute } from '../workspace/workspaceRoute.js';
 
 const decisions = {
   qualified: ['Calificado', 'green'],
@@ -18,11 +20,15 @@ const criteria = {
 };
 
 const leadLabel = ({ name, email, phone }) => name || email || phone || 'Interesado sin nombre';
+const confirmedFacts = (lead) => ({
+  needs: lead.needs ?? '', urgency: lead.urgency ?? '',
+  budgetAmount: lead.budgetAmount ?? '', budgetCurrency: lead.budgetCurrency ?? null,
+});
 
-export function QualificationScreen({ accessToken, onUnauthorized }) {
+export function QualificationScreen({ accessToken, onUnauthorized, initialLeadId }) {
   const api = useMemo(() => qualificationApi(accessToken, onUnauthorized), [accessToken, onUnauthorized]);
   const [leads, setLeads] = useState(null);
-  const [leadId, setLeadId] = useState(null);
+  const [leadId, setLeadId] = useState(initialLeadId ?? null);
   const [error, setError] = useState('');
   const [version, setVersion] = useState('');
 
@@ -43,7 +49,7 @@ export function QualificationScreen({ accessToken, onUnauthorized }) {
       <header>
         <Text size="xs" fw={700} c="yellow.4" tt="uppercase">Evaluación comercial</Text>
         <Title order={1}>Calificación</Title>
-        <Text c="dimmed" mt={4}>Confirme los datos del interesado y aplique una versión de reglas.</Text>
+        <Text c="dimmed" mt={4}>Confirme los datos del interesado. El motor de reglas calcula el puntaje; el asistente no decide la calificación.</Text>
       </header>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
         <Stack gap="lg">
@@ -69,15 +75,26 @@ function LeadQualification({ api, lead, version, setVersion, onFactsSaved }) {
   const [conversations, setConversations] = useState(null);
   const [conversationId, setConversationId] = useState(null);
   const [history, setHistory] = useState(null);
-  const [facts, setFacts] = useState({
-    needs: lead.needs ?? '', urgency: lead.urgency ?? '',
-    budgetAmount: lead.budgetAmount ?? '', budgetCurrency: lead.budgetCurrency ?? null,
-  });
+  const [facts, setFacts] = useState(() => confirmedFacts(lead));
   const [pending, setPending] = useState('');
   const [error, setError] = useState('');
   const [historyError, setHistoryError] = useState('');
   const [message, setMessage] = useState('');
+  const [context, setContext] = useState(null);
+  const [contextError, setContextError] = useState('');
   const setFact = (name) => (value) => setFacts((current) => ({ ...current, [name]: value }));
+  const draftChanged = hasUnconfirmedFacts(facts, lead);
+
+  useEffect(() => {
+    if (!conversationId) return undefined;
+    const controller = new AbortController();
+    api.conversationContext(conversationId, controller.signal).then(({ context: saved }) => {
+      if (!controller.signal.aborted) setContext({ conversationId, facts: conversationSuggestions(saved) });
+    }).catch((failure) => {
+      if (!controller.signal.aborted) setContextError(failure.message);
+    });
+    return () => controller.abort();
+  }, [api, conversationId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -104,6 +121,7 @@ function LeadQualification({ api, lead, version, setVersion, onFactsSaved }) {
     setMessage('');
     try {
       const saved = await api.saveFacts(lead.id, conversationId, qualificationData(facts));
+      setFacts(confirmedFacts(saved));
       onFactsSaved(saved);
       setMessage('Datos confirmados.');
     } catch (failure) {
@@ -115,7 +133,7 @@ function LeadQualification({ api, lead, version, setVersion, onFactsSaved }) {
 
   async function qualify(event) {
     event.preventDefault();
-    if (pending || (!history && !historyError) || !Number.isInteger(Number(version)) || Number(version) < 1) return;
+    if (pending || draftChanged || (!history && !historyError) || !Number.isInteger(Number(version)) || Number(version) < 1) return;
     setPending('score');
     setError('');
     setMessage('');
@@ -130,6 +148,7 @@ function LeadQualification({ api, lead, version, setVersion, onFactsSaved }) {
     }
   }
 
+  const suggested = context?.conversationId === conversationId ? context.facts : {};
   return (
     <Stack gap="lg">
       {error && <Alert color="red">{error}</Alert>}
@@ -138,17 +157,26 @@ function LeadQualification({ api, lead, version, setVersion, onFactsSaved }) {
         <Stack>
           <Title order={2} size="h4">Confirmar datos</Title>
           {!conversations ? <Text c="dimmed">No hay conversaciones disponibles para confirmar datos.</Text> : !conversations.length ? (
-            <Text c="dimmed">Abra una conversación en Chat antes de confirmar datos.</Text>
+            <Button component="a" href={leadRoute('chat', lead.id)} variant="light">Abrir conversación en Chat</Button>
           ) : (
-            <Select label="Conversación" value={conversationId} onChange={setConversationId} allowDeselect={false}
+            <Select label="Conversación" value={conversationId} disabled={!!pending}
+              onChange={(value) => { setContextError(''); setFacts(confirmedFacts(lead)); setConversationId(value); }} allowDeselect={false}
               data={conversations.map(({ id }, index) => ({ value: id, label: 'Conversación ' + (index + 1) }))} />
           )}
-          <Textarea label="Necesidad" value={facts.needs} maxLength={2000} onChange={(event) => setFact('needs')(event.target.value)} />
-          <Textarea label="Urgencia" value={facts.urgency} maxLength={300} onChange={(event) => setFact('urgency')(event.target.value)} />
+          {contextError && <Text size="xs" c="dimmed">Contexto del asistente: {contextError}</Text>}
+          {Object.keys(suggested).length > 0 && <Alert title="Contexto del asistente">
+            <Text size="sm">Puede usarlo como borrador. No se guarda hasta confirmar los datos.</Text>
+            <Button mt="xs" variant="light" size="compact-sm" disabled={!!pending}
+              onClick={() => setFacts((current) => ({ ...current, ...suggested }))}>
+              Cargar como borrador
+            </Button>
+          </Alert>}
+          <Textarea label="Necesidad" value={facts.needs} maxLength={2000} disabled={!!pending} onChange={(event) => setFact('needs')(event.target.value)} />
+          <Textarea label="Urgencia" value={facts.urgency} maxLength={300} disabled={!!pending} onChange={(event) => setFact('urgency')(event.target.value)} />
           <SimpleGrid cols={2}>
-            <NumberInput label="Presupuesto" min={0} max={1_000_000_000_000}
+            <NumberInput label="Presupuesto" min={0} max={1_000_000_000_000} disabled={!!pending}
               value={facts.budgetAmount} onChange={setFact('budgetAmount')} />
-            <Select label="Moneda" value={facts.budgetCurrency} onChange={setFact('budgetCurrency')} data={['ARS', 'USD']} clearable />
+            <Select label="Moneda" value={facts.budgetCurrency} onChange={setFact('budgetCurrency')} data={['ARS', 'USD']} clearable disabled={!!pending} />
           </SimpleGrid>
           <Text size="xs" c="dimmed">Los campos vacíos no sobrescriben los datos guardados.</Text>
           <Button type="submit" variant="light" disabled={!conversationId || !!pending} loading={pending === 'facts'}>Confirmar datos</Button>
@@ -159,7 +187,12 @@ function LeadQualification({ api, lead, version, setVersion, onFactsSaved }) {
           <Title order={2} size="h4">Calificar interesado</Title>
           <NumberInput label="Versión publicada" required min={1} max={2_147_483_647} allowDecimal={false}
             value={version} onChange={setVersion} placeholder="Ingrese la versión" />
-          <Button type="submit" disabled={!Number.isInteger(Number(version)) || Number(version) < 1 || !!pending || (!history && !historyError)}
+          {history?.[0] && <Button variant="subtle" size="compact-sm" onClick={() => setVersion(history[0].ruleSetVersion)}>
+            Usar la última versión aplicada (v{history[0].ruleSetVersion})
+          </Button>}
+          <Text size="xs" c="dimmed">Si falta un dato requerido por las reglas, la calificación queda pendiente.</Text>
+          {draftChanged && <Alert color="yellow" role="status">Confirme los cambios del borrador antes de calificar.</Alert>}
+          <Button type="submit" disabled={draftChanged || !Number.isInteger(Number(version)) || Number(version) < 1 || !!pending || (!history && !historyError)}
             loading={pending === 'score'}>Calificar</Button>
         </Stack>
       </Paper>
@@ -195,9 +228,8 @@ function LeadQualification({ api, lead, version, setVersion, onFactsSaved }) {
 }
 
 function PublishRule({ api, onPublished }) {
-  const [type, setType] = useState('hasNeeds');
   const [threshold, setThreshold] = useState('');
-  const [points, setPoints] = useState('');
+  const [points, setPoints] = useState({});
   const [currency, setCurrency] = useState('USD');
   const [minimumAmount, setMinimumAmount] = useState('');
   const [pending, setPending] = useState(false);
@@ -206,13 +238,11 @@ function PublishRule({ api, onPublished }) {
 
   async function publish(event) {
     event.preventDefault();
-    if (pending || threshold === '' || points === '' || (type === 'minimumBudget' && minimumAmount === '')) return;
+    if (pending) return;
     setPending(true);
     setError('');
     try {
-      const rule = { type, points: Number(points) };
-      if (type === 'minimumBudget') Object.assign(rule, { currency, minimumAmount: Number(minimumAmount) });
-      const result = await api.publish({ threshold: Number(threshold), rules: [rule] });
+      const result = await api.publish(ruleSetData(threshold, points, currency, minimumAmount));
       setVersion(result.version);
       onPublished(result.version);
     } catch (failure) {
@@ -225,25 +255,24 @@ function PublishRule({ api, onPublished }) {
   return (
     <Paper component="form" onSubmit={publish} withBorder p="lg" radius="md" bg="dark.6" style={{ alignSelf: 'start' }}>
       <Stack>
-        <Title order={2} size="h4">Publicar regla</Title>
-        <Text size="sm" c="dimmed">Publique una versión con un criterio o use el número de una versión existente.</Text>
+        <Title order={2} size="h4">Publicar reglas</Title>
+        <Text size="sm" c="dimmed">Configure puntos para uno o más criterios. Solo se publican los campos con puntos.</Text>
         {error && <Alert color="red">{error}</Alert>}
         {version != null && <Alert color="green">Versión {version} publicada.</Alert>}
-        <Select label="Criterio" value={type} onChange={setType} allowDeselect={false}
-          data={Object.entries(criteria).map(([value, label]) => ({ value, label }))} />
-        {type === 'minimumBudget' && (
+        <NumberInput label="Umbral" required min={1} max={1_000_000} allowDecimal={false}
+          value={threshold} onChange={setThreshold} />
+        {Object.entries(criteria).map(([type, label]) => (
+          <NumberInput key={type} label={label + ' · puntos'} placeholder="Sin criterio" min={-1_000_000}
+            max={1_000_000} allowDecimal={false} value={points[type] ?? ''}
+            onChange={(value) => setPoints((current) => ({ ...current, [type]: value }))} />
+        ))}
+        {points.minimumBudget !== '' && points.minimumBudget != null && (
           <SimpleGrid cols={2}>
             <NumberInput label="Monto mínimo" required min={0} max={1_000_000_000_000}
               value={minimumAmount} onChange={setMinimumAmount} />
             <Select label="Moneda" value={currency} onChange={setCurrency} data={['ARS', 'USD']} allowDeselect={false} />
           </SimpleGrid>
         )}
-        <SimpleGrid cols={2}>
-          <NumberInput label="Umbral" required min={1} max={1_000_000} allowDecimal={false}
-            value={threshold} onChange={setThreshold} />
-          <NumberInput label="Puntos" required min={-1_000_000} max={1_000_000} allowDecimal={false}
-            value={points} onChange={setPoints} />
-        </SimpleGrid>
         <Button type="submit" loading={pending}>Publicar versión</Button>
       </Stack>
     </Paper>

@@ -1,189 +1,156 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Group, Paper, Select, Stack, Table, Text, TextInput, Title } from '@mantine/core';
-import { channelOptions, createCaptureApi } from './captureApi.js';
-import { CampaignPager, CaptureRequestState, useCampaignPage } from './campaignPage.jsx';
+import { channelOptions, createCaptureApi, listAllCampaigns } from './captureApi.js';
 import '../dashboard/dashboard.css';
 
-const channelLabel = (value) => channelOptions.find(({ value: option }) => option === value)?.label ?? value;
-const dateLabel = (value) => value ? new Date(value).toLocaleString('es-AR') : 'Sin fecha';
+const channelLabel = (value) => channelOptions.find((option) => option.value === value)?.label ?? value;
 
 export function CaptureScreen({ accessToken, onUnauthorized }) {
   const api = useMemo(() => createCaptureApi(accessToken, onUnauthorized), [accessToken, onUnauthorized]);
-  const { result, page, setPage } = useCampaignPage(api);
-  // La lista se memoriza para que el efecto de selección no dependa de un arreglo nuevo en cada render.
-  const campaigns = useMemo(() => result?.data?.items ?? [], [result]);
-
-  const [campaignId, setCampaignId] = useState(null);
-  const [channels, setChannels] = useState(null);
+  const [campaigns, setCampaigns] = useState(null);
   const [forms, setForms] = useState(null);
+  const [campaignId, setCampaignId] = useState(null);
+  const [channelState, setChannelState] = useState(null);
   const [channel, setChannel] = useState('form');
   const [formName, setFormName] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState('');
   const [revision, setRevision] = useState(0);
-
-  // Se elige la primera campaña disponible para no dejar la pantalla vacía.
-  useEffect(() => {
-    if (!campaignId && campaigns.length) setCampaignId(campaigns[0].id);
-  }, [campaignId, campaigns]);
+  const channels = channelState?.campaignId === campaignId ? channelState.items : null;
+  const canCreate = !campaignId || channels?.includes('form');
+  const campaignNames = useMemo(() => new Map(campaigns?.map(({ id, name }) => [id, name])), [campaigns]);
 
   useEffect(() => {
-    if (!campaignId) {
-      setChannels(null);
-      setForms(null);
-      return undefined;
-    }
     const controller = new AbortController();
-    setChannels(null);
-    setForms(null);
-    Promise.all([
-      api.listChannels(campaignId, controller.signal),
-      api.listForms(campaignId, controller.signal),
-    ]).then(([nextChannels, nextForms]) => {
-      if (controller.signal.aborted) return;
-      setChannels(nextChannels);
-      setForms(nextForms);
+    listAllCampaigns(api, controller.signal).then((items) => {
+      if (!controller.signal.aborted) setCampaigns(items);
+    }).catch((failure) => {
+      if (!controller.signal.aborted) setError(failure.message);
+    });
+    return () => controller.abort();
+  }, [api]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    api.listAllForms(controller.signal).then((items) => {
+      if (!controller.signal.aborted) setForms(items);
+    }).catch((failure) => {
+      if (!controller.signal.aborted) setError(failure.message);
+    });
+    return () => controller.abort();
+  }, [api, revision]);
+
+  useEffect(() => {
+    if (!campaignId) return undefined;
+    const controller = new AbortController();
+    api.listChannels(campaignId, controller.signal).then((items) => {
+      if (!controller.signal.aborted) setChannelState({ campaignId, items });
     }).catch((failure) => {
       if (!controller.signal.aborted) setError(failure.message);
     });
     return () => controller.abort();
   }, [api, campaignId, revision]);
 
-  async function addChannel(event) {
-    event.preventDefault();
-    setBusy(true);
+  async function perform(action, operation) {
+    if (busy) return;
+    setBusy(action);
     setError('');
     setNotice('');
     try {
-      await api.addChannel(campaignId, channel);
-      setNotice('Canal agregado: ' + channelLabel(channel));
+      setNotice(await operation());
       setRevision((value) => value + 1);
     } catch (failure) {
       setError(failure.message);
     } finally {
-      setBusy(false);
+      setBusy('');
     }
   }
 
-  async function createForm(event) {
+  function addChannel() {
+    if (!campaignId) return;
+    perform('channel', async () => {
+      await api.addChannel(campaignId, channel);
+      return 'Canal agregado: ' + channelLabel(channel);
+    });
+  }
+
+  function createForm(event) {
     event.preventDefault();
     const name = formName.trim();
-    if (!name) return;
-    setBusy(true);
-    setError('');
-    setNotice('');
-    try {
+    if (!name || !canCreate) return;
+    perform('form', async () => {
       await api.createForm(campaignId, name);
       setFormName('');
-      setNotice('Formulario creado: ' + name);
-      setRevision((value) => value + 1);
-    } catch (failure) {
-      setError(failure.message);
-    } finally {
-      setBusy(false);
+      return 'Formulario creado: ' + name;
+    });
+  }
+
+  async function copyForm(id) {
+    const url = new URL(window.location.href);
+    url.hash = '/formulario/' + id;
+    setError('');
+    try {
+      await navigator.clipboard.writeText(url.href);
+      setNotice('Enlace copiado.');
+    } catch {
+      setError('No se pudo copiar. Abra el formulario para copiar su dirección.');
     }
   }
 
-  return (
-    <Stack gap="lg">
-      <div>
-        <Text className="auth-label" size="xs" fw={700}>ORÍGENES DE CONTACTO</Text>
-        <Title order={1}>Captación</Title>
-        <Text c="dimmed" size="sm" mt={4}>Canales habilitados y formularios asociados a cada campaña.</Text>
-      </div>
-
-      <Paper p="md" withBorder>
-        <CaptureRequestState result={result} />
-        {result?.data && (
-          <Stack>
-            {campaigns.length ? (
-              <>
-                <Select
-                  label="Campaña"
-                  placeholder="Seleccione una campaña"
-                  data={campaigns.map((campaign) => ({ value: campaign.id, label: campaign.name }))}
-                  value={campaignId}
-                  onChange={setCampaignId}
-                />
-                <CampaignPager page={page} setPage={setPage} total={result.data.total} />
-              </>
-            ) : <Text c="dimmed">Todavía no hay campañas. Cree una en la sección Campañas.</Text>}
-          </Stack>
-        )}
-      </Paper>
-
-      {error && <Alert color="red" role="alert">{error}</Alert>}
-      {notice && <Alert color="green" role="status">{notice}</Alert>}
-
-      {campaignId && (
-        <div className="dashboard-grid">
-          <Paper className="dashboard-panel" withBorder>
-            <Stack gap="md">
-              <div>
-                <Title order={2} size="h4">Canales</Title>
-                <Text c="dimmed" size="sm">Cada canal se asocia una sola vez por campaña.</Text>
-              </div>
-              <Group align="flex-end" wrap="nowrap">
-                <Select
-                  label="Canal"
-                  data={channelOptions}
-                  value={channel}
-                  onChange={(value) => value && setChannel(value)}
-                  allowDeselect={false}
-                  style={{ flex: 1 }}
-                />
-                <Button type="button" onClick={addChannel} loading={busy}>Agregar</Button>
-              </Group>
-              {!channels && <Text role="status" size="sm">Cargando canales…</Text>}
-              {channels?.length === 0 && <Text c="dimmed" size="sm">Esta campaña aún no tiene canales.</Text>}
-              {channels?.length > 0 && (
-                <Group gap="xs">
-                  {channels.map((value) => <Badge key={value} variant="light" color="yellow">{channelLabel(value)}</Badge>)}
-                </Group>
-              )}
-            </Stack>
-          </Paper>
-
-          <Paper className="dashboard-panel" withBorder>
-            <Stack gap="md">
-              <div>
-                <Title order={2} size="h4">Formularios</Title>
-                <Text c="dimmed" size="sm">Formularios de captación vinculados a la campaña.</Text>
-              </div>
-              <Group align="flex-end" wrap="nowrap">
-                <TextInput
-                  label="Nombre del formulario"
-                  placeholder="Ej.: Consulta web"
-                  value={formName}
-                  onChange={(event) => setFormName(event.currentTarget.value)}
-                  style={{ flex: 1 }}
-                />
-                <Button type="button" onClick={createForm} loading={busy} disabled={!formName.trim()}>Crear</Button>
-              </Group>
-              {!forms && <Text role="status" size="sm">Cargando formularios…</Text>}
-              {forms?.length === 0 && <Text c="dimmed" size="sm">Esta campaña aún no tiene formularios.</Text>}
-              {forms?.length > 0 && (
-                <Table.ScrollContainer minWidth={320}>
-                  <Table verticalSpacing="xs" highlightOnHover>
-                    <Table.Thead>
-                      <Table.Tr><Table.Th>Formulario</Table.Th><Table.Th>Creado</Table.Th></Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {forms.map((form) => (
-                        <Table.Tr key={form.id}>
-                          <Table.Td fw={600}>{form.name}</Table.Td>
-                          <Table.Td>{dateLabel(form.createdAt)}</Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </Table.ScrollContainer>
-              )}
-            </Stack>
-          </Paper>
-        </div>
-      )}
-    </Stack>
-  );
+  return <Stack gap="lg">
+    <header>
+      <Text className="auth-label" size="xs" fw={700}>ENTRADA DE INTERESADOS</Text>
+      <Title order={1}>Captación</Title>
+      <Text c="dimmed" size="sm" mt="xs">Cree un formulario público con campaña o sin ella. Cada consulta conserva su origen.</Text>
+    </header>
+    {error && <Alert color="red" role="alert">{error}</Alert>}
+    {notice && <Alert color="green" role="status">{notice}</Alert>}
+    <Paper className="dashboard-panel" withBorder>
+      <Stack gap="sm">
+        <Select label="Asociación de campaña" searchable clearable disabled={!!busy}
+          placeholder={campaigns === null ? 'Cargando campañas…' : 'Sin campaña'} value={campaignId}
+          onChange={(value) => { setCampaignId(value); setChannelState(null); setError(''); }}
+          data={campaigns?.map(({ id, name }) => ({ value: id, label: name })) ?? []} />
+        {campaignId && <>
+          <Title order={2} size="h4">Canales de la campaña</Title>
+          {channels === null && !error && <Text role="status" size="sm">Cargando canales…</Text>}
+          {channels?.length === 0 && <Text c="dimmed" size="sm">Aún no hay canales.</Text>}
+          <Group gap="xs">{channels?.map((value) => <Badge key={value} variant="light">{channelLabel(value)}</Badge>)}</Group>
+          <Group align="end">
+            <Select label="Canal" data={channelOptions} value={channel} allowDeselect={false}
+              onChange={(value) => value && setChannel(value)} disabled={!!busy} />
+            <Button variant="light" onClick={addChannel} loading={busy === 'channel'}
+              disabled={!channels || channels.includes(channel) || !!busy}>Habilitar canal</Button>
+          </Group>
+        </>}
+        <form onSubmit={createForm}>
+          <Group align="end">
+            <TextInput label="Nombre del formulario" value={formName} maxLength={200} required
+              onChange={(event) => setFormName(event.currentTarget.value)} style={{ flexGrow: 1 }} />
+            <Button type="submit" loading={busy === 'form'} disabled={!canCreate || !formName.trim() || !!busy}>Crear formulario</Button>
+          </Group>
+        </form>
+        {!canCreate && channels && <Text size="sm" c="dimmed">Habilite el canal Formulario web para recibir consultas de esta campaña.</Text>}
+      </Stack>
+    </Paper>
+    <Paper className="dashboard-panel" withBorder>
+      <Title order={2} size="h4" mb="sm">Formularios y enlaces</Title>
+      {forms === null && !error && <Text role="status" size="sm">Cargando formularios…</Text>}
+      {forms?.length === 0 && <Text c="dimmed">Todavía no hay formularios.</Text>}
+      {forms?.length > 0 && <Table.ScrollContainer minWidth={560}>
+        <Table verticalSpacing="sm">
+          <Table.Thead><Table.Tr><Table.Th>Formulario</Table.Th><Table.Th>Campaña</Table.Th><Table.Th>Enlace público</Table.Th></Table.Tr></Table.Thead>
+          <Table.Tbody>{forms.map((form) => <Table.Tr key={form.id}>
+            <Table.Td fw={600}>{form.name}</Table.Td>
+            <Table.Td>{form.campaignId ? campaignNames.get(form.campaignId) ?? 'Campaña no disponible' : 'Sin campaña'}</Table.Td>
+            <Table.Td><Group gap="xs" wrap="nowrap">
+              <Button component="a" href={'#/formulario/' + form.id} target="_blank" rel="noopener noreferrer" variant="light" size="compact-sm">Abrir</Button>
+              <Button type="button" variant="subtle" size="compact-sm" onClick={() => copyForm(form.id)}>Copiar enlace</Button>
+            </Group></Table.Td>
+          </Table.Tr>)}</Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>}
+    </Paper>
+  </Stack>;
 }

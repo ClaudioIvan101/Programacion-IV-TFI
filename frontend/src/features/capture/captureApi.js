@@ -32,6 +32,16 @@ export function createCaptureApi(accessToken, onUnauthorized, fetchImpl = fetch)
     listChannels: (id, signal) => request(`${campaignPath(id)}/channels`, { signal }),
     addChannel: (id, channel) => request(`${campaignPath(id)}/channels`, { body: { channel } }),
     listForms: (id, signal) => request(`${campaignPath(id)}/forms`, { signal }),
+    listAllForms: (signal) => request('/forms', { signal }),
     createForm: (id, name) => request('/forms', { body: { campaignId: id, name } }),
   };
+}
+
+export async function listAllCampaigns(api, signal) {
+  const items = [];
+  for (let page = 1; ; page += 1) {
+    const result = await api.listCampaigns(page, signal);
+    items.push(...result.items);
+    if (items.length >= result.total || result.items.length === 0) return items;
+  }
 }

@@ -4,6 +4,8 @@ export const screenApiRoutes = {
   ],
   resumen: [
     ['GET /api/leads', 'Lista los interesados para calcular el total.', 'leads'],
+    ['GET /api/campaigns', 'Relaciona los interesados con sus campañas.', 'campaigns'],
+    ['GET /api/forms', 'Identifica el formulario de origen de cada consulta.', 'capture'],
     ['GET /api/leads/:leadId/qualifications', 'Consulta el historial de cada interesado y toma su última calificación.', 'qualification'],
   ],
   chat: [
@@ -15,6 +17,7 @@ export const screenApiRoutes = {
     ['GET /api/leads/:leadId/conversations', 'Lista las conversaciones del interesado.', 'leads'],
     ['POST /api/leads/:leadId/conversations', 'Abre una conversación para el interesado.', 'leads'],
     ['GET /api/conversations/:conversationId/messages', 'Carga los mensajes de la conversación.', 'leads'],
+    ['GET /api/conversations/:conversationId/context', 'Carga el contexto guardado del asistente.', 'leads'],
     ['POST /api/conversations/:conversationId/turn', 'Envía el mensaje y devuelve el contexto del interesado, los campos faltantes y la respuesta del asistente.', 'leads'],
   ],
   campanas: [
@@ -25,16 +28,26 @@ export const screenApiRoutes = {
     ['GET /api/campaigns', 'Carga las campañas disponibles para seleccionar.', 'campaigns'],
     ['GET /api/campaigns/:id/channels', 'Lista los canales de la campaña.', 'capture'],
     ['POST /api/campaigns/:id/channels', 'Agrega un canal a la campaña.', 'capture'],
-    ['GET /api/campaigns/:id/forms', 'Lista los formularios asociados a la campaña.', 'capture'],
-    ['POST /api/forms', 'Crea un formulario asociado a la campaña.', 'capture'],
+    ['GET /api/forms', 'Lista formularios con campaña o sin ella.', 'capture'],
+    ['POST /api/forms', 'Crea un formulario con campaña opcional.', 'capture'],
+    ['GET /api/public/forms/:id', 'Abre un formulario habilitado sin iniciar sesión.', 'capture'],
+    ['POST /api/public/forms/:id', 'Registra una consulta y conserva su origen.', 'capture'],
   ],
   calificacion: [
     ['GET /api/leads', 'Carga los interesados que se pueden calificar.', 'leads'],
     ['GET /api/leads/:leadId/conversations', 'Lista las conversaciones disponibles para registrar datos.', 'leads'],
+    ['GET /api/conversations/:conversationId/context', 'Carga los datos sugeridos para revisar antes de guardar.', 'leads'],
     ['GET /api/leads/:leadId/qualifications', 'Consulta el historial de calificaciones.', 'qualification'],
     ['PATCH /api/leads/:leadId/conversations/:conversationId/qualification-data', 'Guarda los datos comerciales a partir de la conversación.', 'qualification'],
     ['POST /api/lead-scoring-rule-sets', 'Publica una nueva versión de las reglas de calificación.', 'qualification'],
     ['POST /api/leads/:leadId/qualifications', 'Calcula y guarda la calificación con la versión indicada.', 'qualification'],
+  ],
+  derivacion: [
+    ['GET /api/assignments', 'Lista las derivaciones visibles para el rol actual.', 'assignments'],
+    ['GET /api/assignments/options', 'Lista interesados calificados y vendedores activos.', 'assignments'],
+    ['POST /api/assignments', 'Guarda una derivación y solicita el aviso por correo.', 'assignments'],
+    ['POST /api/assignments/:id/retry', 'Reintenta un aviso no enviado.', 'assignments'],
+    ['POST /api/assignments/:id/first-contact', 'Registra el primer contacto del vendedor asignado.', 'assignments'],
   ],
   usuarios: [
     ['GET /api/users', 'Lista las cuentas del equipo.', 'users'],

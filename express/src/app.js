@@ -7,10 +7,11 @@ import { createCaptureRouter } from "./routes/capture.js";
 import { createLeadRouter } from "./routes/leads.js";
 import { createQualificationRouter } from "./routes/qualification.js";
 import { createReadinessController } from "./controllers/readinessController.js";
+import { createAssignmentRouter } from "./routes/assignments.js";
 import notFound from "./middlewares/notFound.js";
 import errorHandler from "./middlewares/errorHandler.js";
 
-export function createApp({ campaigns, users, capture, leads, auth, qualification, checkReadiness } = {}) {
+export function createApp({ campaigns, users, capture, leads, auth, qualification, assignments, checkReadiness } = {}) {
   const app = express();
 
   app.disable("x-powered-by");
@@ -31,6 +32,7 @@ export function createApp({ campaigns, users, capture, leads, auth, qualificatio
   // Registra las rutas de leads, conversaciones y mensajes en Express.
   if (leads !== undefined) app.use(createLeadRouter(leads));
   if (qualification !== undefined) app.use(createQualificationRouter(qualification));
+  if (assignments !== undefined) app.use("/assignments", createAssignmentRouter(assignments));
   if (auth !== undefined) app.use("/auth", createAuthRouter(auth));
 
   if (users !== undefined) {

@@ -25,6 +25,9 @@ import { createPostgresQualificationRepository } from "./infra/qualificationRepo
 import { createPostgresReadiness } from "./infra/postgresReadiness.js";
 import { createPostgresConversationTurnRepository } from "./infra/conversationTurnRepository.js";
 import { makeRunConversationTurn } from "./domain/ai/runConversationTurn.js";
+import { makeAssignmentUseCases } from "./domain/assignments/assignmentUseCases.js";
+import { createPostgresAssignmentRepository } from "./infra/assignmentRepository.js";
+import { createAssignmentNotifier } from "./infra/assignmentNotifier.js";
 import { readFile } from "node:fs/promises";
 
 // Los esquemas T4 se leen del contrato compartido. La misma ruta relativa
@@ -140,6 +143,13 @@ export const useCases = {
     authenticate,
     applyQualificationData: makeApplyQualificationData({ qualificationRepository }),
     ...makeQualificationUseCases({ qualificationRepository }),
+  },
+  assignments: {
+    authenticate,
+    ...makeAssignmentUseCases({
+      repository: createPostgresAssignmentRepository(pool),
+      notify: createAssignmentNotifier(process.env.ASSIGNMENT_SMTP_URL),
+    }),
   },
   users: {
     createUser: makeCreateUser({ userRepository, hashPassword }),

@@ -12,7 +12,7 @@ test('lead label works for leads without a name', () => {
 test('uses latest persisted decision and leaves missing history pending', async () => {
   const leads = ['a', 'b', 'c', 'd'].map((id) => ({ id, status: 'new' }));
   const history = {
-    a: [{ decision: 'qualified' }, { decision: 'pending' }],
+    a: [{ decision: 'qualified', score: 35, ruleSetVersion: 2 }, { decision: 'pending' }],
     b: [],
     c: [{ decision: 'not_qualified' }],
     d: [{ decision: 'pending' }],
@@ -22,6 +22,8 @@ test('uses latest persisted decision and leaves missing history pending', async 
     listQualifications: async (id) => history[id],
   });
   assert.deepEqual(overview.counts, { total: 4, qualified: 1, pending: 2 });
+  assert.equal(overview.leads[0].score, 35);
+  assert.equal(overview.leads[0].ruleSetVersion, 2);
 });
 
 test('keeps total but does not invent counts when history cannot be read', async () => {
