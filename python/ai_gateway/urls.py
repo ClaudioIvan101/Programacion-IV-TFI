@@ -6,6 +6,7 @@ from . import views
 
 
 urlpatterns = [
+    # Conecta la URL que usa Express con la vista que atiende el pedido.
     path("v1/structured-completions", views.structured_completions),
     path("health", views.probe),
     path("ready", views.probe, {"check_provider": True}),
