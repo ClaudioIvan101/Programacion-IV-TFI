@@ -8,10 +8,14 @@ export const screenApiRoutes = {
   ],
   chat: [
     ['GET /api/leads', 'Carga los interesados que se pueden seleccionar.', 'leads'],
+    ['POST /api/leads', 'Registra un interesado con sus datos y origen.', 'leads'],
+    ['GET /api/campaigns', 'Lista las campañas para el registro de interesados.', 'campaigns'],
+    ['GET /api/campaigns/:id/channels', 'Consulta los canales habilitados de la campaña.', 'capture'],
+    ['GET /api/campaigns/:id/forms', 'Consulta los formularios de origen de la campaña.', 'capture'],
     ['GET /api/leads/:leadId/conversations', 'Lista las conversaciones del interesado.', 'leads'],
     ['POST /api/leads/:leadId/conversations', 'Abre una conversación para el interesado.', 'leads'],
     ['GET /api/conversations/:conversationId/messages', 'Carga los mensajes de la conversación.', 'leads'],
-    ['POST /api/conversations/:conversationId/turn', 'Envía el mensaje e inicia el turno del asistente.', 'leads'],
+    ['POST /api/conversations/:conversationId/turn', 'Envía el mensaje y devuelve el contexto del interesado, los campos faltantes y la respuesta del asistente.', 'leads'],
   ],
   campanas: [
     ['GET /api/campaigns', 'Lista las campañas con paginación.', 'campaigns'],

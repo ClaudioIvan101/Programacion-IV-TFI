@@ -1,4 +1,8 @@
 export const campaignPageSize = 20;
+export const channelOptions = [
+  { value: 'form', label: 'Formulario web' },
+  { value: 'simulated_messaging', label: 'Mensajería simulada' },
+];
 
 export function createCaptureApi(accessToken, onUnauthorized, fetchImpl = fetch) {
   async function request(path, { body, signal } = {}) {

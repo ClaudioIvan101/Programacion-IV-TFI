@@ -33,15 +33,19 @@ test('keeps total but does not invent counts when history cannot be read', async
   assert.deepEqual(overview.counts, { total: 1, qualified: null, pending: null });
 });
 
-test('sends chat turns and creates forms through authenticated API calls', async () => {
+test('registers leads and returns the original chat turn response', async () => {
   const requests = [];
+  const turn = { context: { presupuesto: { monto: 0, moneda: null } }, missingFields: ['presupuesto'] };
   const api = dashboardApi('demo-token', () => {}, async (path, options) => {
     requests.push([path, options.method, options.headers.Authorization, JSON.parse(options.body)]);
-    return new Response('{}');
+    return Response.json(path.endsWith('/turn') ? turn : {});
   });
-  await api.sendMessage('conversation-id', 'Hola');
+  const lead = { name: 'Ana', budgetAmount: 0, budgetCurrency: null, channel: 'form', formId: 'form-id' };
+  await api.createLead(lead);
+  assert.deepEqual(await api.sendMessage('conversation-id', 'Hola'), turn);
   await api.createForm(' Alquileres ');
   assert.deepEqual(requests, [
+    ['/api/leads', 'POST', 'Bearer demo-token', lead],
     ['/api/conversations/conversation-id/turn', 'POST', 'Bearer demo-token', { content: 'Hola' }],
     ['/api/forms', 'POST', 'Bearer demo-token', { name: 'Alquileres' }],
   ]);

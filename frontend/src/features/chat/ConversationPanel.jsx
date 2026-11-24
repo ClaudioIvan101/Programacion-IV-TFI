@@ -1,6 +1,7 @@
 import { Alert, Button, Group, Loader, Paper, Select, Stack, Text, Textarea, Title } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { leadLabel } from '../dashboard/dashboardApi.js';
+import { TurnResult } from './TurnResult.jsx';
 
 export function ConversationPanel({ api, lead }) {
   const [conversations, setConversations] = useState(null);
@@ -69,6 +70,7 @@ function MessageThread({ api, conversationId }) {
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [lastTurn, setLastTurn] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -94,7 +96,8 @@ function MessageThread({ api, conversationId }) {
     setIsSending(true);
     setError('');
     try {
-      await api.sendMessage(conversationId, draft.trim());
+      const result = await api.sendMessage(conversationId, draft.trim());
+      setLastTurn(result);
       setDraft('');
       refresh();
     } catch (failure) {
@@ -129,6 +132,7 @@ function MessageThread({ api, conversationId }) {
           <Button type="submit" loading={isSending} disabled={!draft.trim() || !messages || conflict}>Enviar al asistente</Button>
         </Stack>
       </form>
+      {lastTurn && <TurnResult turn={lastTurn} />}
     </Stack>
   );
 }

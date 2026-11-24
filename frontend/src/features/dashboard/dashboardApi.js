@@ -37,6 +37,7 @@ export function dashboardApi(token, onUnauthorized, fetcher = fetch) {
   const conversationPath = (id) => '/conversations/' + encodeURIComponent(id);
   return {
     listLeads: (signal) => request('/leads', { signal }),
+    createLead: (body) => request('/leads', { body }),
     listQualifications: (id, signal) => request(leadPath(id) + '/qualifications', { signal }),
     listConversations: (id, signal) => request(leadPath(id) + '/conversations', { signal }),
     createConversation: (id, signal) => request(leadPath(id) + '/conversations', { body: {}, signal }),
