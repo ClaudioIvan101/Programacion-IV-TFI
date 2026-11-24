@@ -4,6 +4,8 @@ export const screenApiRoutes = {
   ],
   resumen: [
     ['GET /api/leads', 'Lista los interesados para calcular el total.', 'leads'],
+    ['GET /api/campaigns', 'Relaciona los interesados con sus campañas.', 'campaigns'],
+    ['GET /api/forms', 'Identifica el formulario de origen de cada consulta.', 'capture'],
     ['GET /api/leads/:leadId/qualifications', 'Consulta el historial de cada interesado y toma su última calificación.', 'qualification'],
   ],
   chat: [
@@ -15,6 +17,7 @@ export const screenApiRoutes = {
     ['GET /api/leads/:leadId/conversations', 'Lista las conversaciones del interesado.', 'leads'],
     ['POST /api/leads/:leadId/conversations', 'Abre una conversación para el interesado.', 'leads'],
     ['GET /api/conversations/:conversationId/messages', 'Carga los mensajes de la conversación.', 'leads'],
+    ['GET /api/conversations/:conversationId/context', 'Carga el contexto guardado del asistente.', 'leads'],
     ['POST /api/conversations/:conversationId/turn', 'Envía el mensaje y devuelve el contexto del interesado, los campos faltantes y la respuesta del asistente.', 'leads'],
   ],
   campanas: [
@@ -33,6 +36,7 @@ export const screenApiRoutes = {
   calificacion: [
     ['GET /api/leads', 'Carga los interesados que se pueden calificar.', 'leads'],
     ['GET /api/leads/:leadId/conversations', 'Lista las conversaciones disponibles para registrar datos.', 'leads'],
+    ['GET /api/conversations/:conversationId/context', 'Carga los datos sugeridos para revisar antes de guardar.', 'leads'],
     ['GET /api/leads/:leadId/qualifications', 'Consulta el historial de calificaciones.', 'qualification'],
     ['PATCH /api/leads/:leadId/conversations/:conversationId/qualification-data', 'Guarda los datos comerciales a partir de la conversación.', 'qualification'],
     ['POST /api/lead-scoring-rule-sets', 'Publica una nueva versión de las reglas de calificación.', 'qualification'],

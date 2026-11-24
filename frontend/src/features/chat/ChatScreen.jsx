@@ -5,10 +5,10 @@ import { ConversationPanel } from './ConversationPanel.jsx';
 import { LeadRegistration } from './LeadRegistration.jsx';
 import '../dashboard/dashboard.css';
 
-export function ChatScreen({ accessToken, onUnauthorized }) {
+export function ChatScreen({ accessToken, onUnauthorized, initialLeadId }) {
   const api = useMemo(() => dashboardApi(accessToken, onUnauthorized), [accessToken, onUnauthorized]);
   const [leads, setLeads] = useState(null);
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(initialLeadId ?? null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [registering, setRegistering] = useState(false);
@@ -40,7 +40,7 @@ export function ChatScreen({ accessToken, onUnauthorized }) {
         <div>
           <Text className="auth-label" size="xs" fw={700}>SEGUIMIENTO DE CONSULTAS</Text>
           <Title order={1}>Chat</Title>
-          <Text c="dimmed" size="sm" mt={4}>Seleccione un interesado para consultar sus conversaciones.</Text>
+          <Text c="dimmed" size="sm" mt={4}>El asistente conversa y propone datos; Express valida la respuesta. Confirme los datos antes de aplicar las reglas de calificación.</Text>
         </div>
         <Button onClick={() => { setNotice(''); setRegistering(true); }}>Nuevo interesado</Button>
       </Group>

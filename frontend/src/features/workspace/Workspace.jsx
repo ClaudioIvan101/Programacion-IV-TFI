@@ -1,5 +1,4 @@
 import { Button, Text } from '@mantine/core';
-import { useSyncExternalStore } from 'react';
 import { ApiRouteGuide } from '../api-guide/ApiRouteGuide.jsx';
 import { screenApiRoutes } from '../api-guide/screenApiRoutes.js';
 import { CampaignsScreen } from '../capture/CampaignsScreen.jsx';
@@ -8,7 +7,8 @@ import { ChatScreen } from '../chat/ChatScreen.jsx';
 import { Dashboard } from '../dashboard/Dashboard.jsx';
 import { QualificationScreen } from '../qualification/QualificationScreen.jsx';
 import { UsersScreen } from '../users/UsersScreen.jsx';
-import { workspaceRoute, workspaceRoutes } from './workspaceRoute.js';
+import { routeLeadId, workspaceRoute, workspaceRoutes } from './workspaceRoute.js';
+import { useCurrentHash } from './useCurrentHash.js';
 import './workspace.css';
 
 const screens = {
@@ -20,15 +20,10 @@ const screens = {
   usuarios: UsersScreen,
 };
 
-function subscribe(callback) {
-  window.addEventListener('hashchange', callback);
-  return () => window.removeEventListener('hashchange', callback);
-}
-
-const currentRoute = () => workspaceRoute(window.location.hash);
-
 export function Workspace({ session, onLogout, onUnauthorized }) {
-  const route = useSyncExternalStore(subscribe, currentRoute);
+  const hash = useCurrentHash();
+  const route = workspaceRoute(hash);
+  const leadId = routeLeadId(hash);
   const Screen = screens[route];
   const title = workspaceRoutes.find(([key]) => key === route)[1];
 
@@ -58,7 +53,7 @@ export function Workspace({ session, onLogout, onUnauthorized }) {
       <main className="workspace-main" aria-label={title}>
         <header className="workspace-topbar"><Text size="sm" c="dimmed">Calificación inmobiliaria</Text><Text size="sm" fw={600}>{title}</Text></header>
         <div className="workspace-content">
-          <Screen accessToken={session.accessToken} onUnauthorized={onUnauthorized} />
+          <Screen key={route + ':' + (leadId ?? '')} initialLeadId={leadId} accessToken={session.accessToken} onUnauthorized={onUnauthorized} />
           <ApiRouteGuide key={route} routes={screenApiRoutes[route]} />
         </div>
       </main>

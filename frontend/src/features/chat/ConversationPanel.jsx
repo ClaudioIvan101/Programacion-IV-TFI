@@ -1,6 +1,8 @@
 import { Alert, Button, Group, Loader, Paper, Select, Stack, Text, Textarea, Title } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { leadLabel } from '../dashboard/dashboardApi.js';
+import { leadRoute } from '../workspace/workspaceRoute.js';
+import { conversationSuggestions } from './conversationSuggestions.js';
 import { TurnResult } from './TurnResult.jsx';
 
 export function ConversationPanel({ api, lead }) {
@@ -42,6 +44,7 @@ export function ConversationPanel({ api, lead }) {
         <div>
           <Text className="auth-label" size="xs" fw={700}>CHAT</Text>
           <Title order={2}>{leadLabel(lead)}</Title>
+          <Button component="a" href={leadRoute('calificacion', lead.id)} variant="subtle" size="compact-sm" mt="xs">Revisar y calificar</Button>
         </div>
         {error && <Alert color="red" role="alert">{error}</Alert>}
         {!conversations && (error
@@ -71,6 +74,8 @@ function MessageThread({ api, conversationId }) {
   const [conflict, setConflict] = useState(false);
   const [revision, setRevision] = useState(0);
   const [lastTurn, setLastTurn] = useState(null);
+  const [context, setContext] = useState(null);
+  const [contextError, setContextError] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -80,6 +85,14 @@ function MessageThread({ api, conversationId }) {
       setConflict(false);
     }).catch((failure) => {
       if (!controller.signal.aborted) setError(failure.message);
+    });
+    api.conversationContext(conversationId, controller.signal).then(({ context: persisted }) => {
+      if (!controller.signal.aborted) {
+        setContext(persisted);
+        setContextError('');
+      }
+    }).catch((failure) => {
+      if (!controller.signal.aborted) setContextError(failure.message);
     });
     return () => controller.abort();
   }, [api, conversationId, revision]);
@@ -108,6 +121,7 @@ function MessageThread({ api, conversationId }) {
     }
   }
 
+  const suggested = conversationSuggestions(context);
   return (
     <Stack gap="sm">
       <Group justify="space-between">
@@ -124,6 +138,17 @@ function MessageThread({ api, conversationId }) {
           </div>
         ))}
       </div>
+      <Paper p="sm" withBorder>
+        <Text size="sm" fw={700}>Contexto del asistente</Text>
+        <Text size="xs" c="dimmed">Datos del interesado que el asistente usa para continuar. No cambian el puntaje por sí solos.</Text>
+        {contextError ? <Text size="xs" c="dimmed">{contextError}</Text> :
+          Object.keys(suggested).length === 0 ? <Text size="sm" mt={4}>Todavía no hay datos para revisar.</Text> :
+          <Stack gap={4} mt="xs">
+            {suggested.needs && <Text size="sm">Necesidad: {suggested.needs}</Text>}
+            {suggested.urgency && <Text size="sm">Urgencia: {suggested.urgency}</Text>}
+            {suggested.budgetAmount != null && <Text size="sm">Presupuesto: {suggested.budgetAmount} {suggested.budgetCurrency ?? '(moneda sin confirmar)'}</Text>}
+          </Stack>}
+      </Paper>
       {error && <Alert role="alert" color="red">{error}</Alert>}
       <form onSubmit={submit}>
         <Stack gap="xs">

@@ -53,6 +53,7 @@ export function dashboardApi(token, onUnauthorized, fetcher = fetch) {
     listConversations: (id, signal) => request(leadPath(id) + '/conversations', { signal }),
     createConversation: (id, signal) => request(leadPath(id) + '/conversations', { body: {}, signal }),
     listMessages: (id, signal) => request(conversationPath(id) + '/messages', { signal }),
+    conversationContext: (id, signal) => request(conversationPath(id) + '/context', { signal }),
     sendMessage: (id, content, signal) => request(conversationPath(id) + '/turn', {
       body: { content },
       signal,
@@ -70,7 +71,9 @@ export async function loadLeadOverview(api, signal) {
     rows.push(...await Promise.all(leads.slice(start, start + 6).map(async (lead) => {
       try {
         const history = await api.listQualifications(lead.id, signal);
-        return { ...lead, decision: history[0]?.decision ?? 'pending' };
+        const latest = history[0];
+        return { ...lead, decision: latest?.decision ?? 'pending', score: latest?.score ?? null,
+          ruleSetVersion: latest?.ruleSetVersion ?? null };
       } catch (error) {
         if (error.status === 401 || error.name === 'AbortError') throw error;
         return { ...lead, decision: null };
