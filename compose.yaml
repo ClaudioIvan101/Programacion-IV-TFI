@@ -29,6 +29,7 @@ services:
       PORT: "3000"
       NODE_ENV: development
       JWT_SECRET_HEX: "${JWT_SECRET_HEX:-}"
+      ASSIGNMENT_SMTP_URL: smtp://mailpit:1025
       PGHOST: db
       PGPORT: "5432"
       PGDATABASE: "${POSTGRES_DB:?Falta POSTGRES_DB}"
