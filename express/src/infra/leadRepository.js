@@ -114,10 +114,11 @@ export function createPostgresLeadRepository(db) {
       }
     },
     // 8. Lista los mensajes de la conversación en orden de creación.
-    async listMessages(conversationId) {
+    async listMessages(conversationId, { includeTurnResult = false } = {}) {
+      const columns = includeTurnResult ? `${messageColumns}, m.turn_result AS "turnResult"` : messageColumns;
       // Usamos el ID para desempatar mensajes con la misma fecha de creación.
       const { rows } = await db.query(
-        `SELECT ${messageColumns} FROM conversations c
+        `SELECT ${columns} FROM conversations c
          LEFT JOIN messages m ON m.conversation_id = c.id
          WHERE c.id = $1 ORDER BY m.created_at, m.id`,
         [conversationId],

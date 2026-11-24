@@ -89,6 +89,7 @@ test("saveTurn persiste ambos mensajes y el contexto en una transacción", async
   const pool = fakePool();
   const repository = createPostgresConversationTurnRepository(pool);
   const turnAt = new Date("2026-01-01T00:00:00.000Z");
+  const turnResult = { assistantMessage: "¿Zona?", context, missingFields: [], nextQuestionKey: null };
 
   const saved = await repository.saveTurn({
     conversationId: "c1",
@@ -97,6 +98,7 @@ test("saveTurn persiste ambos mensajes y el contexto en una transacción", async
     assistantContent: "¿Zona?",
     context,
     turnAt,
+    turnResult,
   });
 
   const statements = pool.client.queries.map(({ sql }) => sql.split(" ")[0]);
@@ -107,7 +109,7 @@ test("saveTurn persiste ambos mensajes y el contexto en una transacción", async
   // El mensaje del lead usa el instante del turno.
   assert.deepEqual(lead.values, ["c1", "Hola", turnAt]);
   // El del asistente se registra un milisegundo después para ordenar el historial.
-  assert.deepEqual(assistant.values, ["c1", "¿Zona?", new Date(turnAt.getTime() + 1)]);
+  assert.deepEqual(assistant.values, ["c1", "¿Zona?", new Date(turnAt.getTime() + 1), JSON.stringify(turnResult)]);
   // El contexto ya viene fusionado por el caso de uso; aquí solo se guarda.
   assert.deepEqual(update.values, ["c1", JSON.stringify(context), "17"]);
 

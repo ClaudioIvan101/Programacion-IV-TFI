@@ -37,7 +37,7 @@ export function createPostgresConversationTurnRepository(pool) {
       return { ...conversation, messages };
     },
 
-    async saveTurn({ conversationId, version, leadContent, assistantContent, context, turnAt }) {
+    async saveTurn({ conversationId, version, leadContent, assistantContent, context, turnAt, turnResult }) {
       // La respuesta del asistente se registra un milisegundo después del
       // mensaje del lead. `created_at` usa la hora de inicio de la transacción,
       // así que sin separarlas el orden del historial quedaría ambiguo.
@@ -61,10 +61,10 @@ export function createPostgresConversationTurnRepository(pool) {
         );
 
         const { rows: [assistantMessage] } = await client.query(
-          `INSERT INTO messages (conversation_id, role, content, created_at)
-           VALUES ($1, 'assistant', $2, $3)
+          `INSERT INTO messages (conversation_id, role, content, created_at, turn_result)
+           VALUES ($1, 'assistant', $2, $3, $4::jsonb)
            RETURNING id, conversation_id AS "conversationId", role, content, created_at AS "createdAt"`,
-          [conversationId, assistantContent, assistantAt],
+          [conversationId, assistantContent, assistantAt, JSON.stringify(turnResult)],
         );
 
         return {

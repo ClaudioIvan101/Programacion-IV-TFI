@@ -119,7 +119,12 @@ export function createLeadRouter(leads) {
   }, messageBody));
   // Lista los mensajes de la conversación indicada en la URL.
   router.get('/conversations/:conversationId/messages', validate(async (req, res) => {
-    const messages = await leads.listMessages(req.params.conversationId);
+    const authorization = req.get('Authorization');
+    const user = authorization ? await leads.authenticate?.(authorization) : null;
+    // El JSON del turno contiene datos del interesado y requiere el mismo rol que el POST de turno.
+    const includeTurnResult = user?.status === 'active' && user.role === 'administrador';
+    res.set('Cache-Control', 'no-store');
+    const messages = await leads.listMessages(req.params.conversationId, { includeTurnResult });
     return messages ? res.json(messages) : res.status(404).json({ error: 'Conversación no encontrada.' });
   }));
   //Busca un mensaje específico dentro de la conversación y lo devuelve como JSON si lo encuentra.

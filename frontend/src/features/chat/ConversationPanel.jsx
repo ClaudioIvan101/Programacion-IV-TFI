@@ -1,7 +1,7 @@
 import { Alert, Button, Group, Loader, Paper, Select, Stack, Text, Textarea, Title } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { leadLabel } from '../dashboard/dashboardApi.js';
-import { TurnResult } from './TurnResult.jsx';
+import { TurnJson, TurnResult } from './TurnResult.jsx';
 
 export function ConversationPanel({ api, lead }) {
   const [conversations, setConversations] = useState(null);
@@ -70,7 +70,7 @@ function MessageThread({ api, conversationId }) {
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState(false);
   const [revision, setRevision] = useState(0);
-  const [lastTurn, setLastTurn] = useState(null);
+  const lastTurn = messages?.findLast((message) => message.turnResult)?.turnResult;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -96,8 +96,7 @@ function MessageThread({ api, conversationId }) {
     setIsSending(true);
     setError('');
     try {
-      const result = await api.sendMessage(conversationId, draft.trim());
-      setLastTurn(result);
+      await api.sendMessage(conversationId, draft.trim());
       setDraft('');
       refresh();
     } catch (failure) {
@@ -121,6 +120,7 @@ function MessageThread({ api, conversationId }) {
           <div key={message.id} className={'dashboard-message' + (message.role === 'lead' ? ' dashboard-message-lead' : '')}>
             <Text size="xs" fw={700}>{message.role === 'lead' ? 'Interesado' : 'Asistente'}</Text>
             <Text size="sm">{message.content}</Text>
+            {message.turnResult && <TurnJson turn={message.turnResult} />}
           </div>
         ))}
       </div>
