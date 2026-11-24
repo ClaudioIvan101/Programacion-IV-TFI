@@ -4,6 +4,7 @@ export const workspaceRoutes = [
   ['campanas', 'Campañas', '◎'],
   ['captacion', 'Captación', '◇'],
   ['calificacion', 'Calificación', '✓'],
+  ['derivacion', 'Derivación', '↗'],
   ['usuarios', 'Usuarios', '◉'],
 ];
 

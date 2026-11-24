@@ -1,5 +1,6 @@
 import { Alert, Badge, Button, Group, Paper, Select, Stack, Table, Text, Title } from '@mantine/core';
 import { useEffect, useMemo, useState } from 'react';
+import { assignmentApi, formatResponseTime, notificationLabels } from '../assignments/assignmentApi.js';
 import { createCaptureApi, listAllCampaigns } from '../capture/captureApi.js';
 import { leadRoute } from '../workspace/workspaceRoute.js';
 import { dashboardApi, leadLabel, loadLeadOverview } from './dashboardApi.js';
@@ -15,6 +16,8 @@ const channels = { form: 'Formulario web', simulated_messaging: 'Mensajería sim
 export function Dashboard({ accessToken, onUnauthorized }) {
   const api = useMemo(() => dashboardApi(accessToken, onUnauthorized), [accessToken, onUnauthorized]);
   const capture = useMemo(() => createCaptureApi(accessToken, onUnauthorized), [accessToken, onUnauthorized]);
+  const assignments = useMemo(() => assignmentApi(accessToken, onUnauthorized), [accessToken, onUnauthorized]);
+  const [handoff, setHandoff] = useState(null);
   const [overview, setOverview] = useState(null);
   const [origins, setOrigins] = useState({ campaigns: [], forms: [] });
   const [originError, setOriginError] = useState(false);
@@ -38,8 +41,13 @@ export function Dashboard({ accessToken, onUnauthorized }) {
       setOriginError(campaigns.status === 'rejected' || forms.status === 'rejected');
       setOrigins({ campaigns: campaigns.value ?? [], forms: forms.value ?? [] });
     });
+    assignments.list(signal).then((result) => {
+      if (!signal.aborted) setHandoff(result);
+    }).catch(() => {
+      if (!signal.aborted) setHandoff(null);
+    });
     return () => controller.abort();
-  }, [api, capture, revision]);
+  }, [api, capture, assignments, revision]);
 
   function refresh() {
     setError('');
@@ -55,6 +63,7 @@ export function Dashboard({ accessToken, onUnauthorized }) {
   const visibleLeads = overview?.leads.toReversed().filter((lead) =>
     campaign === null || (campaign === 'none' ? !lead.campaignId : lead.campaignId === campaign));
   const counts = overview?.counts;
+  const assignedByLead = new Map(handoff?.assignments.map((row) => [row.leadId, row]));
 
   return <Stack gap="lg" component="section" aria-labelledby="dashboard-title">
     <Group justify="space-between" align="end">
@@ -100,10 +109,11 @@ export function Dashboard({ accessToken, onUnauthorized }) {
           <Table verticalSpacing="sm" highlightOnHover>
             <Table.Thead><Table.Tr>
               <Table.Th>Interesado</Table.Th><Table.Th>Origen</Table.Th><Table.Th>Calificación</Table.Th>
-              <Table.Th>Seguimiento</Table.Th>
+              <Table.Th>Derivación</Table.Th><Table.Th>Seguimiento</Table.Th>
             </Table.Tr></Table.Thead>
             <Table.Tbody>{visibleLeads.map((lead) => {
               const [status, color] = decisions[lead.decision] ?? ['No disponible', 'gray'];
+              const assigned = assignedByLead.get(lead.id);
               return <Table.Tr key={lead.id}>
                 <Table.Td><Text size="sm" fw={600}>{leadLabel(lead)}</Text></Table.Td>
                 <Table.Td>
@@ -115,6 +125,16 @@ export function Dashboard({ accessToken, onUnauthorized }) {
                   <Badge variant="light" color={color}>{status}</Badge>
                   <Text size="xs" c="dimmed" mt={4}>{lead.score == null ? 'Sin puntaje'
                     : lead.score + ' puntos · v' + lead.ruleSetVersion}</Text>
+                </Table.Td>
+                <Table.Td>
+                  {assigned ? <>
+                    <Text size="sm" fw={600}>{assigned.sellerName}</Text>
+                    <Text size="xs" c="dimmed">{notificationLabels[assigned.notificationStatus]?.[0] ?? 'Aviso sin estado'}</Text>
+                    <Text size="xs" c="dimmed">{formatResponseTime(assigned.responseSeconds)}</Text>
+                    <Button component="a" href={leadRoute('derivacion', lead.id)} size="compact-xs" variant="subtle">Ver derivación</Button>
+                  </> : handoff?.canManage && lead.decision === 'qualified'
+                    ? <Button component="a" href={leadRoute('derivacion', lead.id)} size="compact-sm" variant="light">Derivar</Button>
+                    : <Text size="xs" c="dimmed">{handoff ? 'Sin derivación visible' : 'Derivación no disponible'}</Text>}
                 </Table.Td>
                 <Table.Td><Group gap="xs" wrap="nowrap">
                   <Button component="a" href={leadRoute('chat', lead.id)} size="compact-sm" variant="light">Chat</Button>

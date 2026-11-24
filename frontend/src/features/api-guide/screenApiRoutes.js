@@ -42,6 +42,13 @@ export const screenApiRoutes = {
     ['POST /api/lead-scoring-rule-sets', 'Publica una nueva versión de las reglas de calificación.', 'qualification'],
     ['POST /api/leads/:leadId/qualifications', 'Calcula y guarda la calificación con la versión indicada.', 'qualification'],
   ],
+  derivacion: [
+    ['GET /api/assignments', 'Lista las derivaciones visibles para el rol actual.', 'assignments'],
+    ['GET /api/assignments/options', 'Lista interesados calificados y vendedores activos.', 'assignments'],
+    ['POST /api/assignments', 'Guarda una derivación y solicita el aviso por correo.', 'assignments'],
+    ['POST /api/assignments/:id/retry', 'Reintenta un aviso no enviado.', 'assignments'],
+    ['POST /api/assignments/:id/first-contact', 'Registra el primer contacto del vendedor asignado.', 'assignments'],
+  ],
   usuarios: [
     ['GET /api/users', 'Lista las cuentas del equipo.', 'users'],
     ['GET /api/users/:id', 'Carga el detalle de la cuenta seleccionada.', 'users'],

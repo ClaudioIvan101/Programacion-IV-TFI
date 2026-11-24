@@ -160,3 +160,29 @@ Los resultados aparecen en la pestaña **Actions** del repositorio.
 - [Estructura y configuración de Express](express/README.md)
 - [Uso y límites del backend Python](python/README.md)
 - [Controles de seguridad pendientes](express/docs/security.md)
+
+### Derivación comercial
+
+Un administrador o supervisor puede abrir **Derivación**, seleccionar a un
+interesado con su última calificación aprobada y asignarle un vendedor activo.
+Express guarda la asignación y la versión de la calificación antes de solicitar
+el aviso por SMTP. Cada interesado admite una asignación; repetir la solicitud
+para el mismo vendedor no vuelve a enviar el aviso.
+
+En Compose el SMTP se queda en Mailpit: los correos se capturan en
+[http://127.0.0.1:8025](http://127.0.0.1:8025), no se envían a buzones reales.
+La aceptación SMTP no confirma la lectura. Los avisos pendientes o con fallo
+confirmado admiten hasta tres intentos totales; un envío incierto requiere
+verificación manual, no un reenvío automático.
+
+Al iniciar sesión como el vendedor asignado, el tablero **Derivación** muestra
+sus interesados y permite registrar el primer contacto una sola vez. El tiempo
+se mide desde la asignación hasta ese registro, no desde la apertura del correo.
+
+Si la imagen anterior responde «Not found» en Captación o Derivación, vuelva
+a compilar ambos servicios y aplique las migraciones de la base:
+
+```bash
+docker compose up -d --build --wait core-api frontend
+docker compose exec -T core-api npm run migrate
+```

@@ -1,4 +1,5 @@
 import { Button, Text } from '@mantine/core';
+import { AssignmentsScreen } from '../assignments/AssignmentsScreen.jsx';
 import { ApiRouteGuide } from '../api-guide/ApiRouteGuide.jsx';
 import { screenApiRoutes } from '../api-guide/screenApiRoutes.js';
 import { CampaignsScreen } from '../capture/CampaignsScreen.jsx';
@@ -17,6 +18,7 @@ const screens = {
   campanas: CampaignsScreen,
   captacion: CaptureScreen,
   calificacion: QualificationScreen,
+  derivacion: AssignmentsScreen,
   usuarios: UsersScreen,
 };
 
