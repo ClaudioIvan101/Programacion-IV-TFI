@@ -77,12 +77,17 @@ def open_request(request, request_id):
     Lanza `RequestRejected` con el estado HTTP correspondiente en el primer
     chequeo que falle.
     """
+    # 1. Comprueba que Express haya enviado un POST.
     if request.method != "POST":
         raise RequestRejected(405, "INVALID_REQUEST", {"Allow": "POST"})
 
+    # 2. Verifica el token de servicio que identifica a Express.
     _authenticate(request)
+    # 3. Revisa que el pedido indique JSON y traiga los encabezados requeridos.
     _require_contract_headers(request, request_id)
+    # 4. Calcula cuánto tiempo queda para responder.
     deadline_seconds = _deadline_seconds(request)
+    # 5. Lee el cuerpo y comprueba que respete el contrato T4.
     payload = _read_payload(request)
 
     return GatewayRequest(payload=payload, deadline_seconds=deadline_seconds)

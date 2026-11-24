@@ -12,6 +12,7 @@ servers:
 security:
 - serviceJwt: []
 paths:
+  # T4 define la ruta, el JWT de servicio y los esquemas que comparten Express y Django.
   /v1/structured-completions:
     post:
       operationId: structuredCompletion
@@ -52,6 +53,7 @@ paths:
         content:
           application/json:
             schema:
+              # Define los datos que Express le manda a Django.
               $ref: ./schemas/request.schema.json
             examples:
               complete:
@@ -71,6 +73,7 @@ paths:
           content:
             application/json:
               schema:
+                # Define el JSON que Django devuelve cuando el pedido sale bien.
                 $ref: ./schemas/response.schema.json
               examples:
                 complete:

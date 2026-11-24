@@ -45,6 +45,7 @@ def make_service_jwt_verifier(public_key_pem):
 
     def verify(authorization):
         """True solo si el encabezado Bearer trae un JWT de servicio válido."""
+        # 1. Lee el token que Express envió en el encabezado Authorization.
         parts = (authorization or "").split()
         if (
             len(parts) != 2
@@ -53,12 +54,12 @@ def make_service_jwt_verifier(public_key_pem):
         ):
             return False
 
+        # 2. Express firma con la clave privada. Django verifica con la clave pública.
         try:
             decoded = jwt.decode_complete(
                 parts[1],
                 key,
-                # Fijar el algoritmo evita la confusión de algoritmos: un token
-                # firmado con HS256 usando la clave pública como secreto falla.
+                # El token de servicio debe estar firmado con RS256.
                 algorithms=[ALGORITHM],
                 issuer=ISSUER,
                 audience=AUDIENCE,
@@ -77,7 +78,7 @@ def make_service_jwt_verifier(public_key_pem):
         claims = decoded["payload"]
         iat, nbf, exp = (claims[name] for name in ("iat", "nbf", "exp"))
 
-        # Una firma válida no alcanza: el token debe respetar el perfil T4.
+        # 3. Comprueba el permiso (scope) y la duración del token de servicio.
         # `type(value) is int` rechaza booleanos, que en Python son int.
         return (
             decoded["header"].get("typ") == "JWT"
@@ -90,6 +91,7 @@ def make_service_jwt_verifier(public_key_pem):
     return verify
 
 
+# Reutiliza el verificador de la clave pública y comprueba un token en cada pedido.
 @lru_cache(maxsize=1)
 def load_service_jwt_verifier(public_key_file):
     """Carga el PEM público una vez y reutiliza el verificador entre solicitudes.
@@ -103,6 +105,7 @@ def load_service_jwt_verifier(public_key_file):
         )
 
     try:
+        # La clave pública se genera en scripts/generate-service-jwt-keys.mjs, línea 15.
         public_key_pem = Path(public_key_file).read_bytes()
         return make_service_jwt_verifier(public_key_pem)
     except (OSError, ValueError, UnsupportedAlgorithm) as exc:

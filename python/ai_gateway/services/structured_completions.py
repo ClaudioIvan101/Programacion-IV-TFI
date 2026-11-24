@@ -31,9 +31,7 @@ def complete(payload, *, deadline_seconds):
     """
     started = monotonic()
 
-    # T7: el escenario se elige a partir del contexto, sin interpretar el texto.
-    # Si falta cualquier dato del contacto o la moneda, corresponde el ejemplo
-    # parcial que pregunta por el presupuesto.
+    # 1. Si faltan datos del contexto, selecciona el ejemplo parcial.
     context = payload["context"]
     partial = not (
         all(value is not None for value in context.values())
@@ -41,34 +39,30 @@ def complete(payload, *, deadline_seconds):
         and context["presupuesto"]["moneda"] is not None
     )
 
+    # 2. Pide al proveedor simulado que cargue el JSON completo o parcial.
     try:
         response = fake_completion(partial=partial)
     except OSError:
-        # El adaptador no pudo leer sus datos: el servicio está no disponible.
         raise CompletionFailure("SERVICE_UNAVAILABLE") from None
     except ValueError:
-        # Los datos del adaptador no son JSON válido.
         raise CompletionFailure("INVALID_PROVIDER_RESPONSE")
     except Exception:
-        # Cualquier fallo inesperado no debe filtrar detalles al cliente.
         raise CompletionFailure("INTERNAL_ERROR") from None
 
-    # El proveedor puede devolver algo sintácticamente válido pero fuera de
-    # contrato: se valida contra el esquema T4 antes de aceptarlo.
+    # 3. Comprueba que la respuesta cumpla el contrato T4.
     if not RESPONSE_VALIDATOR.is_valid(response):
         raise CompletionFailure("INVALID_PROVIDER_RESPONSE")
 
     data = response["data"]
     budget = data["extracted_data"]["presupuesto"]
-    # Coherencia interna: la pregunta de seguimiento debe estar entre los
-    # campos faltantes, y una moneda nula debe declararse como faltante.
+    # 4. La pregunta debe apuntar a un campo faltante. Si falta la moneda, el presupuesto queda pendiente.
     if data["next_question_key"] is not None and data["next_question_key"] not in data["missing_fields"]:
         raise CompletionFailure("INVALID_PROVIDER_RESPONSE")
     if budget is not None and budget["moneda"] is None and "presupuesto" not in data["missing_fields"]:
         raise CompletionFailure("INVALID_PROVIDER_RESPONSE")
 
+    # 5. Comprueba el plazo y devuelve cuánto tardó la respuesta.
     elapsed = monotonic() - started
-    # Una sola política de tiempo: el presupuesto que fijó el adaptador HTTP.
     if elapsed > deadline_seconds:
         raise CompletionFailure("DEADLINE_EXCEEDED")
 
