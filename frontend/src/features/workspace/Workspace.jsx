@@ -1,5 +1,7 @@
 import { Button, Text } from '@mantine/core';
 import { useSyncExternalStore } from 'react';
+import { ApiRouteGuide } from '../api-guide/ApiRouteGuide.jsx';
+import { screenApiRoutes } from '../api-guide/screenApiRoutes.js';
 import { CampaignsScreen } from '../capture/CampaignsScreen.jsx';
 import { CaptureScreen } from '../capture/CaptureScreen.jsx';
 import { ChatScreen } from '../chat/ChatScreen.jsx';
@@ -57,6 +59,7 @@ export function Workspace({ session, onLogout, onUnauthorized }) {
         <header className="workspace-topbar"><Text size="sm" c="dimmed">Calificación inmobiliaria</Text><Text size="sm" fw={600}>{title}</Text></header>
         <div className="workspace-content">
           <Screen accessToken={session.accessToken} onUnauthorized={onUnauthorized} />
+          <ApiRouteGuide key={route} routes={screenApiRoutes[route]} />
         </div>
       </main>
     </div>

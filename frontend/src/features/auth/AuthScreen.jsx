@@ -1,5 +1,7 @@
 import { Alert, Paper, Stack, Text, Title } from '@mantine/core';
 import { useCallback, useEffect, useState } from 'react';
+import { ApiRouteGuide } from '../api-guide/ApiRouteGuide.jsx';
+import { screenApiRoutes } from '../api-guide/screenApiRoutes.js';
 import { Workspace } from '../workspace/Workspace.jsx';
 import { LoginForm } from './LoginForm.jsx';
 import './auth.css';
@@ -52,6 +54,7 @@ export function AuthScreen() {
             <LoginForm onLogin={handleLogin} />
           </Stack>
         </Stack>
+        <ApiRouteGuide routes={screenApiRoutes.login} />
       </Paper>
     </main>
   );
