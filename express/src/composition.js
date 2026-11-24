@@ -13,6 +13,7 @@ import {makeGetCampaignById} from "./domain/campaigns/getCampaignById.js";
 import { createPostgresCaptureRepository } from "./infra/captureRepository.js";
 import { makeAddCampaignChannel } from "./domain/capture/addCampaignChannel.js";
 import { makeListCampaignChannels } from "./domain/capture/listCampaignChannels.js";
+import { makeListCampaignForms } from "./domain/capture/listCampaignForms.js";
 import { makeCreateForm } from "./domain/capture/createForm.js";
 import { makeGetFormById } from "./domain/capture/getFormById.js";
 import { createJwtAuthenticator, createJwtIssuer } from "./infra/jwtAuthenticator.js";
@@ -126,6 +127,7 @@ export const useCases = {
   capture: {
     addCampaignChannel: makeAddCampaignChannel({ captureRepository }),
     listCampaignChannels: makeListCampaignChannels({ captureRepository }),
+    listCampaignForms: makeListCampaignForms({ captureRepository }),
     createForm: makeCreateForm({ captureRepository }),
     getFormById: makeGetFormById({ captureRepository }),
     // El JWT identifica al usuario; sus permisos se consultan en la base.

@@ -127,3 +127,22 @@ test('captación deniega sin clave y rechaza una clave inválida', async () => {
   assert.equal(await authenticate('Bearer invalid-token'), null);
   assert.throws(() => createJwtAuthenticator({ secretHex: 'abc', findUserById }), /JWT_SECRET_HEX/);
 });
+
+test('lista formularios por campaña, solo para administradores activos', async (t) => {
+  const secondId = 'bf24e13f-a33f-4a5d-9e76-cbc3cdd7550a';
+  const rows = [{ id: secondId, name: 'Formulario', campaignId: id }];
+  const app = createApp({ capture: {
+    authenticate: async (token) => token === 'Bearer admin' ? { role: 'administrador', status: 'active' } :
+      token === 'Bearer seller' ? { role: 'vendedor', status: 'active' } : null,
+    listCampaignForms: async (campaignId) => rows.filter((row) => row.campaignId === campaignId),
+  } });
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const url = (campaignId) => `http://127.0.0.1:${server.address().port}/campaigns/${campaignId}/forms`;
+  const admin = { headers: { Authorization: 'Bearer admin' } };
+  assert.equal((await fetch(url(id))).status, 401);
+  assert.equal((await fetch(url(id), { headers: { Authorization: 'Bearer seller' } })).status, 403);
+  assert.deepEqual(await (await fetch(url(id), admin)).json(), rows);
+  assert.deepEqual(await (await fetch(url(secondId), admin)).json(), []);
+});

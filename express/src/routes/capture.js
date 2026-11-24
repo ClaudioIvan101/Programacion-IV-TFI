@@ -25,6 +25,7 @@ const formBody = z.strictObject({
 export function createCaptureRouter({
   addCampaignChannel,
   listCampaignChannels,
+  listCampaignForms,
   createForm,
   getFormById,
   authenticate = async () => null,
@@ -105,6 +106,14 @@ export function createCaptureRouter({
   }));
 
   // Formularios: se consultan por su propio ID, tengan o no campaña.
+  router.get('/campaigns/:id/forms', protect, handle(async (req, res) => {
+    if (!id.safeParse(req.params.id).success || !query.safeParse(req.query).success) {
+      return res.status(400).json({ error: 'Datos inválidos.' });
+    }
+
+    res.json(await listCampaignForms(req.params.id));
+  }));
+
   router.post('/forms', protect, handle(async (req, res) => {
     if (!query.safeParse(req.query).success) {
       return res.status(400).json({ error: 'Datos inválidos.' });

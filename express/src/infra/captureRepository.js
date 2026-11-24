@@ -39,6 +39,13 @@ export function createPostgresCaptureRepository(pool) {
         throw error;
       }
     },
+    async listCampaignForms(campaignId) {
+      const { rows } = await pool.query(
+        'SELECT f.id, f.name, f.campaign_id AS "campaignId", f.created_at AS "createdAt" FROM campaigns c LEFT JOIN forms f ON f.campaign_id = c.id WHERE c.id = $1 ORDER BY f.created_at DESC, f.id',
+        [campaignId],
+      );
+      return rows.length ? rows.filter((row) => row.id !== null) : null;
+    },
     // Se consultan los formularios por su propio ID, incluso si no tienen una campaña.
     async getFormById(id) {
       const result = await pool.query('SELECT id, name, campaign_id AS "campaignId", created_at AS "createdAt" FROM forms WHERE id = $1', [id]);
