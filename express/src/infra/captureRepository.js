@@ -46,6 +46,12 @@ export function createPostgresCaptureRepository(pool) {
       );
       return rows.length ? rows.filter((row) => row.id !== null) : null;
     },
+    async listForms() {
+      const { rows } = await pool.query(
+        'SELECT id, name, campaign_id AS "campaignId", created_at AS "createdAt" FROM forms ORDER BY created_at DESC, id',
+      );
+      return rows;
+    },
     // Se consultan los formularios por su propio ID, incluso si no tienen una campaña.
     async getFormById(id) {
       const result = await pool.query('SELECT id, name, campaign_id AS "campaignId", created_at AS "createdAt" FROM forms WHERE id = $1', [id]);

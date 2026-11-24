@@ -128,6 +128,8 @@ export const useCases = {
     addCampaignChannel: makeAddCampaignChannel({ captureRepository }),
     listCampaignChannels: makeListCampaignChannels({ captureRepository }),
     listCampaignForms: makeListCampaignForms({ captureRepository }),
+    listForms: () => captureRepository.listForms(),
+    createLeadFromForm: (id, data) => leadRepository.createLeadFromForm(id, data),
     createForm: makeCreateForm({ captureRepository }),
     getFormById: makeGetFormById({ captureRepository }),
     // El JWT identifica al usuario; sus permisos se consultan en la base.

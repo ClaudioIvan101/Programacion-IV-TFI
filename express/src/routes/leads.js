@@ -132,6 +132,10 @@ export function createLeadRouter(leads) {
   // mensajes con el contexto actualizado y devuelve la próxima pregunta.
   // La respuesta contiene contexto del lead; esta operación queda restringida a administración.
   const protectTurn = requireUserRole(leads.authenticate ?? (async () => null), 'administrador');
+  router.get('/conversations/:conversationId/context', protectTurn, validate(async (req, res) => {
+    const result = await leads.getConversationContext(req.params.conversationId);
+    return result ? res.json(result) : res.status(404).json({ error: 'Conversación no encontrada.' });
+  }));
   router.post('/conversations/:conversationId/turn', protectTurn, validate(async (req, res, body) => {
     // Igual que el login: si el gateway no está configurado, la operación no
     // existe para el cliente y responde 503 sin tocar la conversación.

@@ -11,6 +11,19 @@ const originForeignKeys = new Set([
 
 export function createPostgresLeadRepository(db) {
   return {
+    async createLeadFromForm(formId, { name, email, phone, needs }) {
+      // La campaña se obtiene del formulario en la misma operación que registra el contacto.
+      const { rowCount } = await db.query(
+        `INSERT INTO leads (name, email, phone, needs, campaign_id, channel, form_id)
+         SELECT $2, $3, $4, $5, f.campaign_id, 'form', f.id
+         FROM forms f
+         WHERE f.id = $1 AND (f.campaign_id IS NULL OR EXISTS (
+           SELECT 1 FROM campaign_channels cc WHERE cc.campaign_id = f.campaign_id AND cc.channel = 'form'
+         ))`,
+        [formId, name, email, phone, needs],
+      );
+      return rowCount === 1;
+    },
     // 1. Guarda un lead con los datos recibidos y devuelve el registro creado.
     async createLead({ name, email, phone, campaignId, channel, formId, needs, budgetAmount, budgetCurrency, urgency }, registrationId) {
       const fields = {
@@ -83,6 +96,9 @@ export function createPostgresLeadRepository(db) {
     // 6. Busca una conversación específica por su ID.
     async getConversation(id) {
       return (await db.query(`SELECT ${conversationColumns} FROM conversations c WHERE c.id = $1`, [id])).rows[0] ?? null;
+    },
+    async getConversationContext(id) {
+      return (await db.query('SELECT context FROM conversations WHERE id = $1', [id])).rows[0] ?? null;
     },
     // 7. Guarda el texto y el rol del mensaje en la conversación indicada.
     async createMessage(conversationId, { role, content }) {
