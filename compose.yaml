@@ -44,6 +44,23 @@ services:
       mailpit:
         condition: service_started
 
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "127.0.0.1:8080:80"
+    networks:
+      - backend
+    depends_on:
+      core-api:
+        condition: service_started
+        restart: true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   ai-gateway:
     build:
       context: .

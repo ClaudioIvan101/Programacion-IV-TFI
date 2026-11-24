@@ -1,0 +1,85 @@
+/* Variables compartidas por los paneles de todas las pantallas. */
+:root {
+  --dashboard-panel: #24252a;
+  --dashboard-border: #393b40;
+}
+
+.dashboard-shell {
+  min-block-size: 100dvh;
+}
+
+.dashboard-topbar {
+  padding: 0.75rem max(1.25rem, calc((100vw - 72rem) / 2));
+  border-block-end: 1px solid var(--dashboard-border);
+  background: var(--dashboard-panel);
+}
+
+.dashboard-content {
+  inline-size: min(100%, 74.5rem);
+  margin-inline: auto;
+  padding: clamp(1.25rem, 4vw, 2.75rem) 1.25rem;
+}
+
+.dashboard-counts, .dashboard-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.dashboard-counts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-grid {
+  align-items: start;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  margin-block-start: 1rem;
+}
+
+.dashboard-panel {
+  min-inline-size: 0;
+  padding: 1.25rem;
+  background: var(--dashboard-panel);
+  border-color: var(--dashboard-border);
+  overflow-wrap: anywhere;
+}
+
+.dashboard-count-value {
+  font-size: clamp(1.55rem, 4vw, 2.15rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  min-block-size: 9rem;
+  max-block-size: 21rem;
+  overflow: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--dashboard-border);
+  border-radius: var(--mantine-radius-sm);
+  background: var(--mantine-color-body);
+}
+
+.dashboard-message {
+  align-self: flex-start;
+  max-inline-size: 88%;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--mantine-radius-sm);
+  background: #373a40;
+  white-space: pre-wrap;
+}
+
+.dashboard-message-lead {
+  align-self: flex-end;
+  background: #3b3420;
+}
+
+@media (max-width: 750px) {
+  .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 410px) {
+  .dashboard-counts { gap: 0.5rem; }
+  .dashboard-count { padding: 0.65rem; }
+}

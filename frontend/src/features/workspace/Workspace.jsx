@@ -1,0 +1,64 @@
+import { Button, Text } from '@mantine/core';
+import { useSyncExternalStore } from 'react';
+import { CampaignsScreen } from '../capture/CampaignsScreen.jsx';
+import { CaptureScreen } from '../capture/CaptureScreen.jsx';
+import { ChatScreen } from '../chat/ChatScreen.jsx';
+import { Dashboard } from '../dashboard/Dashboard.jsx';
+import { QualificationScreen } from '../qualification/QualificationScreen.jsx';
+import { UsersScreen } from '../users/UsersScreen.jsx';
+import { workspaceRoute, workspaceRoutes } from './workspaceRoute.js';
+import './workspace.css';
+
+const screens = {
+  resumen: Dashboard,
+  chat: ChatScreen,
+  campanas: CampaignsScreen,
+  captacion: CaptureScreen,
+  calificacion: QualificationScreen,
+  usuarios: UsersScreen,
+};
+
+function subscribe(callback) {
+  window.addEventListener('hashchange', callback);
+  return () => window.removeEventListener('hashchange', callback);
+}
+
+const currentRoute = () => workspaceRoute(window.location.hash);
+
+export function Workspace({ session, onLogout, onUnauthorized }) {
+  const route = useSyncExternalStore(subscribe, currentRoute);
+  const Screen = screens[route];
+  const title = workspaceRoutes.find(([key]) => key === route)[1];
+
+  return (
+    <div className="workspace-shell">
+      <aside className="workspace-sidebar" aria-label="Espacio de trabajo">
+        <div className="workspace-brand">
+          <span className="auth-mark" aria-hidden="true">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m3 10 9-7 9 7M5 9v12h14V9M10 21v-7h4v7" />
+            </svg>
+          </span>
+          <Text fw={700}>LeadQual</Text>
+        </div>
+        <Text className="workspace-nav-title" size="xs" fw={700}>OPERACIONES</Text>
+        <nav className="workspace-nav" aria-label="Navegación principal">
+          {workspaceRoutes.map(([key, label, icon]) => (
+            <a key={key} href={'#/' + key} aria-current={route === key ? 'page' : undefined}>
+              <span aria-hidden="true">{icon}</span>{label}
+            </a>
+          ))}
+        </nav>
+        <div className="workspace-session">
+          <Button variant="subtle" color="gray" size="sm" onClick={onLogout}>Cerrar sesión</Button>
+        </div>
+      </aside>
+      <main className="workspace-main" aria-label={title}>
+        <header className="workspace-topbar"><Text size="sm" c="dimmed">Calificación inmobiliaria</Text><Text size="sm" fw={600}>{title}</Text></header>
+        <div className="workspace-content">
+          <Screen accessToken={session.accessToken} onUnauthorized={onUnauthorized} />
+        </div>
+      </main>
+    </div>
+  );
+}

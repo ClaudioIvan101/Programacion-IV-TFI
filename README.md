@@ -9,7 +9,7 @@ Requiere **Docker Desktop instalado y en ejecución**, con contenedores Linux y
 Docker Compose disponible (`docker compose version`). Ejecutar los comandos de
 esta sección desde la raíz del repositorio.
 
-[compose.yaml](compose.yaml) inicia los backends y la infraestructura local.
+[compose.yaml](compose.yaml) inicia la interfaz, los backends y la infraestructura local.
 
 | Servicio | Uso y acceso |
 | --- | --- |
@@ -17,6 +17,7 @@ esta sección desde la raíz del repositorio.
 | Mailpit (`mailpit`) | Captura correos de prueba, sin enviarlos a destinatarios externos. SMTP interno en `mailpit:1025`; interfaz web en [http://localhost:8025](http://localhost:8025), publicada solo en `127.0.0.1`. |
 | Express (`core-api`) | API principal, publicada en `127.0.0.1:3000`. |
 | Django (`ai-gateway`) | Gateway con adaptador falso, accesible en `ai-gateway:3100` dentro de la red `backend`. |
+| React (`frontend`) | Interfaz inicial en [http://127.0.0.1:8080](http://127.0.0.1:8080). Docker instala sus dependencias y compila Vite; no requiere Node.js en la máquina anfitriona para abrirla. |
 
 PostgreSQL, SMTP y el gateway usan puertos internos de Docker.
 
@@ -45,6 +46,7 @@ docker compose ps
 docker compose exec db sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 docker compose exec core-api npm run migrate
 curl -fsS http://127.0.0.1:3000/health
+curl -fsS http://127.0.0.1:8080/api/health
 docker compose exec ai-gateway python -c "from urllib.request import urlopen; print(urlopen('http://127.0.0.1:3100/health').status, urlopen('http://127.0.0.1:3100/ready').status)"
 ```
 
@@ -55,6 +57,11 @@ La interfaz de Mailpit debe abrir en el puerto 8025. Si un puerto publicado ya
 está ocupado, usar otro puerto de host con un archivo Compose local de
 sobrescritura. Mantener `--quiet` al compartir la validación de la configuración
 para evitar exponer contraseñas.
+
+El frontend reenvía las solicitudes con prefijo `/api/` a Express; por
+ejemplo, `/api/health` en el frontend llama a `/health` en Express. Para
+editarlo con recarga automática, mantener Express en Docker y ejecutar
+`npm ci` y `npm run dev` desde `frontend/`.
 
 ### Habilitar el turno conversacional T4
 
