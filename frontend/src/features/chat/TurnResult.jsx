@@ -8,6 +8,15 @@ const fieldLabels = {
   urgencia: 'Urgencia',
 };
 
+export function TurnJson({ turn }) {
+  return (
+    <details>
+      <Text component="summary" size="sm" fw={600} style={{ cursor: 'pointer' }}>Respuesta de la API (JSON)</Text>
+      <Code block mt="xs" mah={300} style={{ overflow: 'auto' }}>{JSON.stringify(turn, null, 2)}</Code>
+    </details>
+  );
+}
+
 export function TurnResult({ turn }) {
   const { contacto, necesidades, presupuesto, urgencia } = turn.context;
   const fields = [
@@ -36,10 +45,6 @@ export function TurnResult({ turn }) {
           <Text size="xs" c="dimmed">Campos faltantes del último turno</Text>
           <Text size="sm">{turn.missingFields.map((field) => fieldLabels[field]).join(', ') || 'Ninguno'}</Text>
         </div>
-        <details>
-          <Text component="summary" size="sm" fw={600} style={{ cursor: 'pointer' }}>Respuesta de la API (JSON)</Text>
-          <Code block mt="xs" mah={300} style={{ overflow: 'auto' }}>{JSON.stringify(turn, null, 2)}</Code>
-        </details>
       </Stack>
     </Paper>
   );

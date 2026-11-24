@@ -131,17 +131,7 @@ export function makeRunConversationTurn({
     if (!processed.ok) throw new ConversationTurnError(processed.code);
 
     const { data } = processed.response;
-    const saved = await conversationTurnRepository.saveTurn({
-      conversationId,
-      version: turn.version,
-      leadContent: content,
-      assistantContent: data.assistant_message,
-      context: processed.context,
-      turnAt,
-    });
-    if (saved === null) throw new ConversationTurnError("TURN_CONFLICT");
-
-    return {
+    const result = {
       assistantMessage: data.assistant_message,
       nextQuestionKey: data.next_question_key,
       missingFields: data.missing_fields,
@@ -149,5 +139,17 @@ export function makeRunConversationTurn({
       // El cliente sabe que debe preguntar por la moneda del presupuesto.
       needsBudgetCurrencyClarification: processed.needsBudgetCurrencyClarification,
     };
+    const saved = await conversationTurnRepository.saveTurn({
+      conversationId,
+      version: turn.version,
+      leadContent: content,
+      assistantContent: data.assistant_message,
+      context: processed.context,
+      turnAt,
+      turnResult: result,
+    });
+    if (saved === null) throw new ConversationTurnError("TURN_CONFLICT");
+
+    return result;
   };
 }

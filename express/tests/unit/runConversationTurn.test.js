@@ -105,6 +105,7 @@ test("el primer turno inicializa el contexto desde el lead y persiste la respues
       urgencia: null,
     },
     turnAt,
+    turnResult: result,
   });
 
   assert.deepEqual(result, {

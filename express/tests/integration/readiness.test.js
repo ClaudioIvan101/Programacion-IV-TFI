@@ -1,15 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../../src/app.js';
-import { createPostgresReadiness } from '../../src/infra/postgresReadiness.js';
+import { createPostgresReadiness, REQUIRED_MIGRATIONS } from '../../src/infra/postgresReadiness.js';
 
 test('readiness refleja caída y recuperación sin afectar health ni exponer errores', async (t) => {
   let state = 'ready';
   const pool = { query: async () => {
     if (state === 'down') throw new Error('información sensible');
-    if (state === 'missing') return { rows: [{ total: 5 }] };
+    if (state === 'missing') return { rows: [{ total: REQUIRED_MIGRATIONS.length - 1 }] };
     if (state === 'timeout') return new Promise(() => {});
-    return { rows: [{ total: 6 }] };
+    return { rows: [{ total: REQUIRED_MIGRATIONS.length }] };
   } };
   const checkReadiness = createPostgresReadiness(pool, { timeoutMs: 25, cacheMs: 0 });
   const server = createApp({ checkReadiness }).listen(0, '127.0.0.1');

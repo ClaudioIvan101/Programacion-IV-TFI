@@ -34,6 +34,10 @@ before(async () => {
       runConversationTurn: (input) => handler(input),
       getConversationContext: async (id) => id === conversationId
         ? { context: { ...result.context, necesidades: "Alquiler" } } : null,
+      listMessages: async (_id, { includeTurnResult }) => [
+        { id: "legacy", role: "assistant", content: "Mensaje anterior" },
+        { id: "new", role: "assistant", content: result.assistantMessage, ...(includeTurnResult && { turnResult: result }) },
+      ],
     },
   });
   server = app.listen(0, "127.0.0.1");
@@ -72,6 +76,19 @@ test("solo administración puede consultar sugerencias guardadas de una conversa
   const response = await fetch(url, { headers: adminHeaders });
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { context: { ...result.context, necesidades: "Alquiler" } });
+});
+
+test("el historial devuelve el JSON del turno solo a un administrador activo", async () => {
+  const url = `${baseUrl}/conversations/${conversationId}/messages`;
+  for (const authorization of [null, "Bearer test-seller", "Bearer test-inactive", adminHeaders.Authorization]) {
+    const response = await fetch(url, { headers: authorization ? { Authorization: authorization } : {} });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    const [legacy, saved] = await response.json();
+    assert.equal(legacy.content, "Mensaje anterior");
+    assert.equal(legacy.turnResult, undefined);
+    assert.deepEqual(saved.turnResult, authorization === adminHeaders.Authorization ? result : undefined);
+  }
 });
 
 test("el turno exige un JWT de administrador activo antes de usar datos del lead", async () => {
