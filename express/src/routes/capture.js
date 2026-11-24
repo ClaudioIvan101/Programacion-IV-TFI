@@ -20,14 +20,25 @@ const formBody = z.strictObject({
   // Un formulario puede existir sin estar asociado a una campaña.
   campaignId: id.nullable().optional(),
 });
+const publicText = (max) => z.string().trim().min(1).max(max)
+  .refine((value) => value.isWellFormed() && !value.includes('\0'));
+const publicContact = z.strictObject({
+  name: publicText(120),
+  email: z.string().trim().max(254).email().optional(),
+  phone: publicText(40).optional(),
+  needs: publicText(2000).optional(),
+}).refine(({ email, phone }) => Boolean(email || phone));
+const unavailableForm = 'El formulario no está habilitado para recibir consultas.';
 
 // Los casos de uso se inyectan para probar las rutas sin depender de PostgreSQL.
 export function createCaptureRouter({
   addCampaignChannel,
   listCampaignChannels,
   listCampaignForms,
+  listForms,
   createForm,
   getFormById,
+  createLeadFromForm,
   authenticate = async () => null,
 }) {
   const router = Router();
@@ -121,6 +132,35 @@ export function createCaptureRouter({
 
     const body = validate(req, res, formBody);
     if (body) res.status(201).json(await createForm(body));
+  }));
+
+  router.get('/forms', protect, handle(async (req, res) => {
+    if (!query.safeParse(req.query).success) return res.status(400).json({ error: 'Datos inválidos.' });
+    res.json(await listForms());
+  }));
+
+  // El enlace público no expone datos de campañas ni datos de otros interesados.
+  router.get('/public/forms/:id', handle(async (req, res) => {
+    if (!id.safeParse(req.params.id).success || !query.safeParse(req.query).success) {
+      return res.status(400).json({ error: 'Datos inválidos.' });
+    }
+    const { name, campaignId } = await getFormById(req.params.id);
+    if (campaignId && !(await listCampaignChannels(campaignId)).includes('form')) {
+      return res.status(409).json({ error: unavailableForm });
+    }
+    res.json({ name });
+  }));
+
+  router.post('/public/forms/:id', handle(async (req, res) => {
+    if (!id.safeParse(req.params.id).success || !query.safeParse(req.query).success) {
+      return res.status(400).json({ error: 'Datos inválidos.' });
+    }
+    const body = validate(req, res, publicContact);
+    if (!body) return;
+    if (!await createLeadFromForm(req.params.id, body)) {
+      return res.status(409).json({ error: unavailableForm });
+    }
+    res.status(201).json({ received: true });
   }));
 
   router.get('/forms/:id', protect, handle(async (req, res) => {

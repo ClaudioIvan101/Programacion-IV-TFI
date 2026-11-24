@@ -61,6 +61,42 @@ test('HTTP de captación deniega por defecto las cuatro operaciones', async (t) 
   assert.equal((await fetch(`${base}/forms/${id}`)).status, 401);
 });
 
+test('formulario público muestra solo su nombre y registra contacto sin aceptar origen del cliente', async (t) => {
+  const submitted = [];
+  const unavailable = 'af24e13f-a33f-4a5d-9e76-cbc3cdd7550b';
+  const capture = {
+    authenticate: async (value) => value === 'Bearer test-admin' ? { role: 'administrador', status: 'active' } : null,
+    listForms: async () => [{ id, name: 'Alquileres', campaignId: null }],
+    listCampaignChannels: async (campaign) => campaign === 'interno' ? ['form'] : [],
+    getFormById: async (formId) => {
+      if (formId === unavailable) return { id: formId, name: 'No habilitado', campaignId: 'sin-canal' };
+      if (formId !== id) throw new FormNotFoundError();
+      return { id, name: 'Alquileres', campaignId: 'interno', createdAt: 'interno' };
+    },
+    createLeadFromForm: async (formId, data) => submitted.push([formId, data]) > 0,
+  };
+  const server = createApp({ capture }).listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const form = `${base}/public/forms/${id}`;
+  assert.deepEqual(await (await fetch(form)).json(), { name: 'Alquileres' });
+  const blocked = await fetch(`${base}/public/forms/${unavailable}`);
+  assert.equal(blocked.status, 409);
+  assert.deepEqual(await blocked.json(), { error: 'El formulario no está habilitado para recibir consultas.' });
+  assert.equal((await fetch(`${base}/public/forms/00000000-0000-4000-8000-000000000000`)).status, 404);
+  assert.equal((await fetch(`${base}/forms`)).status, 401);
+  assert.deepEqual(await (await fetch(`${base}/forms`, {
+    headers: { Authorization: 'Bearer test-admin' },
+  })).json(), [{ id, name: 'Alquileres', campaignId: null }]);
+  const data = { name: 'Ana', email: 'ana@example.invalid', needs: 'Alquiler' };
+  assert.equal((await post(form, { name: 'Ana' })).status, 400);
+  const saved = await post(form, data);
+  assert.equal(saved.status, 201);
+  assert.deepEqual(await saved.json(), { received: true });
+  assert.deepEqual(submitted, [[id, data]]);
+});
+
 test('captación verifica JWT y consulta el rol y estado actuales', async (t) => {
   const secretHex = 'ab'.repeat(32); // Clave exclusiva de la prueba.
   let user = { role: 'vendedor', status: 'active' };

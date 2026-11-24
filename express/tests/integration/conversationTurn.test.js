@@ -32,6 +32,8 @@ before(async () => {
       // Sustituimos el caso de uso para probar únicamente el contrato HTTP.
       authenticate,
       runConversationTurn: (input) => handler(input),
+      getConversationContext: async (id) => id === conversationId
+        ? { context: { ...result.context, necesidades: "Alquiler" } } : null,
     },
   });
   server = app.listen(0, "127.0.0.1");
@@ -61,6 +63,15 @@ test("un turno válido responde 200 con la próxima pregunta", async () => {
   assert.deepEqual(await response.json(), result);
   // La ruta entrega solo la conversación y el texto nuevo al caso de uso.
   assert.deepEqual(received, { conversationId, content: "Hola" });
+});
+
+test("solo administración puede consultar sugerencias guardadas de una conversación", async () => {
+  const url = `${baseUrl}/conversations/${conversationId}/context`;
+  assert.equal((await fetch(url)).status, 401);
+  assert.equal((await fetch(url, { headers: { Authorization: "Bearer test-seller" } })).status, 403);
+  const response = await fetch(url, { headers: adminHeaders });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { context: { ...result.context, necesidades: "Alquiler" } });
 });
 
 test("el turno exige un JWT de administrador activo antes de usar datos del lead", async () => {
