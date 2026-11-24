@@ -186,3 +186,12 @@ a compilar ambos servicios y aplique las migraciones de la base:
 docker compose up -d --build --wait core-api frontend
 docker compose exec -T core-api npm run migrate
 ```
+
+Si una red administrada intercepta HTTPS, un PEM de la CA **ya confiable**
+puede pasarse solo a la compilación sin desactivar TLS ni agregarlo al repositorio:
+
+```powershell
+$env:LEADQUAL_NPM_CA_FILE = 'C:/ruta/ca-confiable.pem'
+docker compose -f compose.yaml -f compose.local-ca.yaml up -d --build --wait core-api frontend
+docker compose exec -T core-api npm run migrate
+```

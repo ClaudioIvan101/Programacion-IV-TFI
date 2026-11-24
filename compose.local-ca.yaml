@@ -1,0 +1,14 @@
+# Opt-in: use an already trusted PEM CA for registry HTTPS during Node image builds.
+services:
+  core-api:
+    build:
+      secrets:
+        - npm_registry_ca
+  frontend:
+    build:
+      secrets:
+        - npm_registry_ca
+
+secrets:
+  npm_registry_ca:
+    file: "${LEADQUAL_NPM_CA_FILE:?Indique la ruta de la CA local en formato PEM}"
