@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod'; // Libreria para validar los datos
-import { InvalidLeadError } from '../domain/leads/createLead.js';
+import { InvalidLeadError, LeadRegistrationConflictError } from '../domain/leads/createLead.js';
 import { ConversationTurnError } from '../domain/ai/runConversationTurn.js';
 import { requireUserRole } from '../middlewares/requireUserRole.js';
 
@@ -74,10 +74,15 @@ export function createLeadRouter(leads) {
 
   // Crea un lead con los datos del cuerpo de la petición.
   router.post('/leads', validate(async (req, res, body) => {
+    const registrationId = req.get('Idempotency-Key');
+    if (registrationId !== undefined && !id.safeParse(registrationId).success) {
+      return res.status(400).json({ error: 'Clave de registro inválida.' });
+    }
     try {
-      return res.status(201).json(await leads.createLead(body));
+      return res.status(201).json(await leads.createLead(body, registrationId));
     } catch (error) {
       if (error instanceof InvalidLeadError) return res.status(400).json({ error: error.message });
+      if (error instanceof LeadRegistrationConflictError) return res.status(409).json({ error: error.message });
       throw error;
     }
   }, leadBody));

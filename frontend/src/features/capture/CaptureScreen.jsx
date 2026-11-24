@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Group, Paper, Select, Stack, Table, Text, TextInput, Title } from '@mantine/core';
-import { createCaptureApi } from './captureApi.js';
+import { channelOptions, createCaptureApi } from './captureApi.js';
 import { CampaignPager, CaptureRequestState, useCampaignPage } from './campaignPage.jsx';
 import '../dashboard/dashboard.css';
-
-// Valores que acepta el backend para el canal de captación.
-const channelOptions = [
-  { value: 'form', label: 'Formulario web' },
-  { value: 'simulated_messaging', label: 'Mensajería simulada' },
-];
 
 const channelLabel = (value) => channelOptions.find(({ value: option }) => option === value)?.label ?? value;
 const dateLabel = (value) => value ? new Date(value).toLocaleString('es-AR') : 'Sin fecha';

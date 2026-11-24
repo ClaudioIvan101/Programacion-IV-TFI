@@ -3,12 +3,13 @@ export function leadLabel({ name, email, phone }) {
 }
 
 export function dashboardApi(token, onUnauthorized, fetcher = fetch) {
-  async function request(path, { body, signal, unavailable } = {}) {
+  async function request(path, { body, signal, unavailable, registrationId } = {}) {
     const response = await fetcher('/api' + path, {
       method: body ? 'POST' : 'GET',
       headers: {
         Authorization: 'Bearer ' + token,
         ...(body && { 'Content-Type': 'application/json' }),
+        ...(registrationId && { 'Idempotency-Key': registrationId }),
       },
       body: body && JSON.stringify(body),
       signal,
@@ -23,7 +24,9 @@ export function dashboardApi(token, onUnauthorized, fetcher = fetch) {
         401: 'La sesión ya no es válida.',
         403: 'Esta acción requiere una cuenta de administrador.',
         404: 'El recurso ya no está disponible.',
-        409: 'La conversación cambió. Actualice el historial antes de volver a enviar.',
+        409: registrationId
+          ? 'La clave de registro ya fue usada con otros datos.'
+          : 'La conversación cambió. Actualice el historial antes de volver a enviar.',
         503: unavailable ?? 'El servicio no está disponible.',
       };
       throw Object.assign(new Error(messages[response.status] ?? 'No se pudo completar la operación.'), {
@@ -37,6 +40,15 @@ export function dashboardApi(token, onUnauthorized, fetcher = fetch) {
   const conversationPath = (id) => '/conversations/' + encodeURIComponent(id);
   return {
     listLeads: (signal) => request('/leads', { signal }),
+    async createLead(body, registrationId = crypto.randomUUID()) {
+      const options = { body, registrationId };
+      try {
+        return await request('/leads', options);
+      } catch (error) {
+        if (error.status && error.status < 500) throw error;
+        return request('/leads', options);
+      }
+    },
     listQualifications: (id, signal) => request(leadPath(id) + '/qualifications', { signal }),
     listConversations: (id, signal) => request(leadPath(id) + '/conversations', { signal }),
     createConversation: (id, signal) => request(leadPath(id) + '/conversations', { body: {}, signal }),

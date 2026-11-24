@@ -44,14 +44,28 @@ test('API de leads, conversaciones y mensajes con PostgreSQL', { timeout: 15_000
   );
 
   const leadRepository = createPostgresLeadRepository(client);
-  const leads = { ...leadRepository, createLead: makeCreateLead({ leadRepository }) };
+  const createLead = makeCreateLead({ leadRepository });
+  let failAfterRegistration;
+  const leads = {
+    ...leadRepository,
+    async createLead(input, registrationId) {
+      const lead = await createLead(input, registrationId);
+      if (failAfterRegistration && registrationId === failAfterRegistration) {
+        failAfterRegistration = undefined;
+        throw new Error('Fallo de prueba después de guardar');
+      }
+      return lead;
+    },
+  };
   server = createApp({ leads }).listen(0, '127.0.0.1');
   await once(server, 'listening');
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
-  async function request(path, status, body) {
+  async function request(path, status, body, registrationId) {
     const options = body === undefined ? undefined : {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(registrationId && { 'Idempotency-Key': registrationId }) },
+      body: JSON.stringify(body),
     };
     const response = await fetch(`${baseUrl}${path}`, options);
     const data = await response.json();
@@ -166,5 +180,22 @@ test('API de leads, conversaciones y mensajes con PostgreSQL', { timeout: 15_000
     await request(`${messagesPath}/${unknownId}`, 404);
     await request(`${messagesPath}/inválido`, 400);
     await request(`/conversations/${other.id}/messages/${incoming.id}`, 404);
+  });
+
+  await t.test('recupera un alta guardada tras un 500 y rechaza reutilizar la clave con otros datos', async () => {
+    const registrationId = randomUUID();
+    failAfterRegistration = registrationId;
+    const body = { name: 'Alta reintentada', campaignId: campaign.id.toUpperCase(), channel: 'form', formId: form.id, budgetAmount: 0 };
+    await request('/leads', 500, body, registrationId);
+    const saved = await request(`/leads/${registrationId}`, 200);
+    const attempts = await Promise.all([
+      request('/leads', 201, body, registrationId),
+      request('/leads', 201, { ...body, budgetCurrency: null }, registrationId),
+    ]);
+    assert.deepEqual(attempts, [saved, saved]);
+    await request('/leads', 409, { ...body, budgetAmount: 50 }, registrationId);
+    await request('/leads', 400, body, 'clave-invalida');
+    const stored = await request('/leads', 200);
+    assert.equal(stored.filter(({ name }) => name === body.name).length, 1);
   });
 });

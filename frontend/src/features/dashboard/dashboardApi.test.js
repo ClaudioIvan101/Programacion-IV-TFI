@@ -33,17 +33,24 @@ test('keeps total but does not invent counts when history cannot be read', async
   assert.deepEqual(overview.counts, { total: 1, qualified: null, pending: null });
 });
 
-test('sends chat turns and creates forms through authenticated API calls', async () => {
+test('registers leads and returns the original chat turn response', async () => {
   const requests = [];
+  const turn = { context: { presupuesto: { monto: 0, moneda: null } }, missingFields: ['presupuesto'] };
+  const registrationId = 'bc500505-4c5c-4ec4-8678-654e9e29afd6';
   const api = dashboardApi('demo-token', () => {}, async (path, options) => {
-    requests.push([path, options.method, options.headers.Authorization, JSON.parse(options.body)]);
-    return new Response('{}');
+    requests.push([path, options.method, options.headers.Authorization, JSON.parse(options.body), options.headers['Idempotency-Key']]);
+    if (requests.length === 1) return new Response(null, { status: 500 });
+    return Response.json(path.endsWith('/turn') ? turn : {});
   });
-  await api.sendMessage('conversation-id', 'Hola');
+  const lead = { name: 'Ana', budgetAmount: 0, budgetCurrency: null, channel: 'form', formId: 'form-id' };
+  await api.createLead(lead, registrationId);
+  assert.deepEqual(await api.sendMessage('conversation-id', 'Hola'), turn);
   await api.createForm(' Alquileres ');
   assert.deepEqual(requests, [
-    ['/api/conversations/conversation-id/turn', 'POST', 'Bearer demo-token', { content: 'Hola' }],
-    ['/api/forms', 'POST', 'Bearer demo-token', { name: 'Alquileres' }],
+    ['/api/leads', 'POST', 'Bearer demo-token', lead, registrationId],
+    ['/api/leads', 'POST', 'Bearer demo-token', lead, registrationId],
+    ['/api/conversations/conversation-id/turn', 'POST', 'Bearer demo-token', { content: 'Hola' }, undefined],
+    ['/api/forms', 'POST', 'Bearer demo-token', { name: 'Alquileres' }, undefined],
   ]);
 });
 
