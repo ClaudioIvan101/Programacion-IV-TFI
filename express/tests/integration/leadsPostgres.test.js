@@ -106,13 +106,13 @@ test('API de leads, conversaciones y mensajes con PostgreSQL', { timeout: 15_000
 
     const name = '🏠'.repeat(120);
     lead = await request('/leads', 201, {
-      name: ` ${name} `, email: 'ana@example.com', phone: '1234',
+      name: ` ${name} `, email: 'ana@example.com', phone: '+54 9 11 5555-1234',
       campaignId: campaign.id.toUpperCase(), channel: 'form', formId: form.id,
       needs: 'Casa', zone: 'Palermo', financing: 'Contado / Propios',
       budgetAmount: 100000.50, budgetCurrency: 'USD', urgency: 'Este mes',
     });
     assert.deepEqual(lead, {
-      id: lead.id, name, email: 'ana@example.com', phone: '1234',
+      id: lead.id, name, email: 'ana@example.com', phone: '+54 9 11 5555-1234',
       campaignId: campaign.id, channel: 'form', formId: form.id, needs: 'Casa',
       zone: 'Palermo', financing: 'Contado / Propios', customChecks: {},
       budgetAmount: 100000.50, budgetCurrency: 'USD', urgency: 'Este mes', status: 'nuevo', createdAt: lead.createdAt,
@@ -137,6 +137,9 @@ test('API de leads, conversaciones y mensajes con PostgreSQL', { timeout: 15_000
       { channel: 'formulario' },
       { budgetCurrency: 'USD' },
       { budgetAmount: -1 },
+      { email: 'no-es-correo' },
+      { phone: '123' },
+      { phone: 'no-es-tel' },
       { name: ' \t ' },
       { name: 'Ana\0' },
       { name: '\uD800' },

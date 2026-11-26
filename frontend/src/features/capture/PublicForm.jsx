@@ -1,6 +1,7 @@
 import { Alert, Button, Loader, Paper, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { useEffect, useMemo, useState } from 'react';
 import { publicCapture } from './publicCapture.js';
+import { isValidEmail, isValidPhone } from '../chat/leadContact.js';
 import { ApiRouteGuide } from '../api-guide/ApiRouteGuide.jsx';
 import { screenApiRoutes } from '../api-guide/screenApiRoutes.js';
 import '../auth/auth.css';
@@ -28,6 +29,25 @@ export function PublicForm({ formId }) {
     event.preventDefault();
     if (busy || sent) return;
     const fields = Object.fromEntries(new FormData(event.currentTarget));
+    const name = String(fields.name ?? '').trim();
+    const email = String(fields.email ?? '').trim();
+    const phone = String(fields.phone ?? '').trim();
+    if (name.length < 2) {
+      setSubmitError('Ingresá tu nombre completo (al menos 2 caracteres).');
+      return;
+    }
+    if (!email && !phone) {
+      setSubmitError('Ingresá un correo electrónico o un número de teléfono.');
+      return;
+    }
+    if (email && !isValidEmail(email)) {
+      setSubmitError('Ingresá un correo electrónico válido.');
+      return;
+    }
+    if (phone && !isValidPhone(phone)) {
+      setSubmitError('Ingresá un teléfono válido (entre 7 y 15 dígitos).');
+      return;
+    }
     setBusy(true);
     setSubmitError('');
     try {

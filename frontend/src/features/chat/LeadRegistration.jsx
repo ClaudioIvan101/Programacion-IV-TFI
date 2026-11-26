@@ -58,7 +58,12 @@ export function LeadRegistration({ accessToken, onUnauthorized, onCreate, onCrea
     event.preventDefault();
     if (saving) return;
     const fields = new FormData(event.currentTarget);
-    const text = (name) => fields.get(name).trim() || null;
+    const text = (name) => String(fields.get(name) ?? '').trim() || null;
+    const leadName = text('name');
+    if (!leadName || leadName.length < 2) {
+      setError('Ingresá el nombre completo del interesado (al menos 2 caracteres).');
+      return;
+    }
     let contact;
     try {
       contact = leadContact(fields.get('contact'));
@@ -74,7 +79,7 @@ export function LeadRegistration({ accessToken, onUnauthorized, onCreate, onCrea
     }
 
     const body = {
-      name: text('name'),
+      name: leadName,
       ...contact,
       needs: text('needs'),
       zone: zone.trim() || null,
@@ -115,9 +120,9 @@ export function LeadRegistration({ accessToken, onUnauthorized, onCreate, onCrea
           <form onSubmit={submit}>
             <Stack className="lead-registration-fields" gap={12}>
               <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="md">
-                <TextInput data-autofocus name="name" label="Nombre completo"
-                  placeholder="Ej. Mariana Sosa" maxLength={120} disabled={saving} />
-                <TextInput name="contact" label="Correo o teléfono"
+                <TextInput data-autofocus required name="name" label="Nombre completo"
+                  placeholder="Ej. Mariana Sosa" minLength={2} maxLength={120} disabled={saving} />
+                <TextInput required name="contact" label="Correo o teléfono"
                   placeholder="mariana@ejemplo.com o +54 9 11..." maxLength={254} disabled={saving} />
               </SimpleGrid>
               <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="md">

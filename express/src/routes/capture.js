@@ -22,10 +22,15 @@ const formBody = z.strictObject({
 });
 const publicText = (max) => z.string().trim().min(1).max(max)
   .refine((value) => value.isWellFormed() && !value.includes('\0'));
+const publicPhone = z.string().trim().max(40).refine((value) => {
+  if (!value.isWellFormed() || value.includes('\0') || !/^\+?[\d\s().-]+$/.test(value)) return false;
+  const digits = value.replace(/\D/g, '').length;
+  return digits >= 7 && digits <= 15;
+});
 const publicContact = z.strictObject({
   name: publicText(120),
   email: z.string().trim().max(254).email().optional(),
-  phone: publicText(40).optional(),
+  phone: publicPhone.optional(),
   needs: publicText(2000).optional(),
 }).refine(({ email, phone }) => Boolean(email || phone));
 const unavailableForm = 'El formulario no está habilitado para recibir consultas.';

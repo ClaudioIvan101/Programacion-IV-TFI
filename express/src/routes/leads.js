@@ -8,11 +8,16 @@ const id = z.string().uuid();
 // Evitamos que la codificación UTF-8 reemplace caracteres inválidos o envíe un carácter nulo a PostgreSQL.
 const validPostgresText = (value) => value.isWellFormed() && !value.includes('\0');
 const text = (max) => z.string().trim().min(1).max(max).refine(validPostgresText);
+const phone = z.string().trim().max(40).refine((value) => {
+  if (!validPostgresText(value) || !/^\+?[\d\s().-]+$/.test(value)) return false;
+  const digits = value.replace(/\D/g, '').length;
+  return digits >= 7 && digits <= 15;
+});
 //Define la regla de los campos del LEAD
 const leadBody = z.strictObject({
   name: text(120).nullish(),
   email: z.string().trim().max(254).email().nullish(),
-  phone: text(40).nullish(),
+  phone: phone.nullish(),
   campaignId: id.nullish(),
   channel: z.enum(['form', 'simulated_messaging']).nullish(),
   formId: id.nullish(),
