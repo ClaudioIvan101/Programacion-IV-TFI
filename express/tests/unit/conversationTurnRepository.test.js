@@ -158,6 +158,25 @@ test("saveTurn revierte la transacción si falla una escritura", async () => {
   assert.equal(pool.released.count, 1);
 });
 
+test("saveTurn conserva SQL NULL si la conversación aún no tiene contexto", async () => {
+  const pool = fakePool();
+  const repository = createPostgresConversationTurnRepository(pool);
+  const turnResult = { assistantMessage: "Revisión humana", humanReviewRequired: true };
+
+  await repository.saveTurn({
+    conversationId: "c1",
+    version: "17",
+    leadContent: "Hola",
+    assistantContent: turnResult.assistantMessage,
+    context: null,
+    turnAt: new Date("2026-01-01T00:00:00.000Z"),
+    turnResult,
+  });
+
+  assert.deepEqual(pool.client.queries[1].values, ["c1", null, "17"]);
+  assert.equal(pool.client.queries[3].values[3], JSON.stringify(turnResult));
+});
+
 test("un turno calculado sobre una versión anterior no guarda mensajes", async () => {
   const pool = fakePool({ onClientQuery: async () => ({ rows: [] }) });
   const repository = createPostgresConversationTurnRepository(pool);

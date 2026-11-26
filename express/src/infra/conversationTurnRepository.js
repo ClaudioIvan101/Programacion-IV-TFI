@@ -50,7 +50,7 @@ export function createPostgresConversationTurnRepository(pool) {
           `UPDATE conversations SET context = $2::jsonb
            WHERE id = $1 AND xmin::text = $3
            RETURNING context`,
-          [conversationId, JSON.stringify(context), version],
+          [conversationId, context === null ? null : JSON.stringify(context), version],
         );
         if (!updated) return null;
         const { rows: [leadMessage] } = await client.query(

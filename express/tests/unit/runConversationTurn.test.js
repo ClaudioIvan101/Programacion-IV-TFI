@@ -208,14 +208,14 @@ test("propaga el código del gateway sin filtrar detalles internos", async () =>
     },
     aiGateway: {
       structuredCompletion: async () => {
-        throw Object.assign(new Error("boom"), { code: "TIMEOUT" });
+        throw Object.assign(new Error("boom"), { code: "CREDENTIALS" });
       },
     },
   });
 
   await assert.rejects(run({ conversationId: "c1", content: "Hola" }), (error) => {
     assert.ok(error instanceof ConversationTurnError);
-    assert.equal(error.code, "TIMEOUT");
+    assert.equal(error.code, "CREDENTIALS");
     return true;
   });
 });
@@ -235,19 +235,31 @@ test("rechaza un contexto persistido que no cumple el esquema", async () => {
   );
 });
 
-test("rechaza una respuesta inválida del proveedor", async () => {
+test("solicita revisión humana sin guardar datos extraídos de una respuesta inválida", async () => {
+  const saved = [];
+  const previousContext = contextFromLead({ needs: "Casa" });
   const run = makeRunConversationTurn({
     conversationTurnRepository: {
-      loadTurn: async () => turn(),
-      saveTurn: async () => {},
+      loadTurn: async () => turn({ context: previousContext }),
+      saveTurn: async (input) => { saved.push(input); },
     },
     aiGateway: { structuredCompletion: async () => ({ data: {} }) },
+    now: () => turnAt,
   });
 
-  await assert.rejects(
-    run({ conversationId: "c1", content: "Hola" }),
-    { code: "INVALID_PROVIDER_RESPONSE" },
-  );
+  const result = await run({ conversationId: "c1", content: "Hola" });
+  assert.equal(result.humanReviewRequired, true);
+  assert.equal(Object.hasOwn(result, "context"), false);
+  assert.equal(Object.hasOwn(result, "missingFields"), false);
+  assert.deepEqual(saved, [{
+    conversationId: "c1",
+    version: "17",
+    leadContent: "Hola",
+    assistantContent: result.assistantMessage,
+    context: previousContext,
+    turnAt,
+    turnResult: result,
+  }]);
 });
 
 test("contextFromLead arma el contexto T4 con las reglas del esquema", () => {
@@ -276,13 +288,39 @@ test("contextFromLead arma el contexto T4 con las reglas del esquema", () => {
   });
 });
 
-test("los fallos HTTP de disponibilidad y plazo conservan su significado", async () => {
-  for (const [status, code] of [[503, "SERVICE_UNAVAILABLE"], [504, "DEADLINE_EXCEEDED"]]) {
+test("persiste una derivación humana tras un fallo definitivo del gateway", async () => {
+  for (const failure of [
+    { code: "HTTP_ERROR", status: 502 },
+    { code: "HTTP_ERROR", status: 503 },
+    { code: "HTTP_ERROR", status: 504 },
+    { code: "TIMEOUT" },
+    { code: "TRANSPORT" },
+    { code: "INVALID_RESPONSE" },
+  ]) {
+    const saves = [];
     const run = makeRunConversationTurn({
-      conversationTurnRepository: { loadTurn: async () => turn(), saveTurn: async () => assert.fail("no guarda errores") },
+      conversationTurnRepository: {
+        loadTurn: async () => turn({ name: "Ana" }),
+        saveTurn: async (input) => { saves.push(input); },
+      },
+      aiGateway: { structuredCompletion: async () => { throw Object.assign(new Error("detalle privado"), failure); } },
+    });
+    const result = await run({ conversationId: "c1", content: "Hola" });
+    assert.equal(result.humanReviewRequired, true);
+    assert.doesNotMatch(result.assistantMessage, /detalle privado/);
+    assert.deepEqual(saves.map(({ context, turnResult }) => ({ context, turnResult })), [
+      { context: null, turnResult: result },
+    ]);
+  }
+});
+
+test("no guarda una derivación si el gateway rechaza autenticación o solicitud", async () => {
+  for (const status of [400, 401, 403, 500]) {
+    const run = makeRunConversationTurn({
+      conversationTurnRepository: { loadTurn: async () => turn(), saveTurn: async () => assert.fail("no guarda errores internos") },
       aiGateway: { structuredCompletion: async () => { throw Object.assign(new Error(), { code: "HTTP_ERROR", status }); } },
     });
-    await assert.rejects(run({ conversationId: "c1", content: "Hola" }), { code });
+    await assert.rejects(run({ conversationId: "c1", content: "Hola" }), { code: "HTTP_ERROR" });
   }
 });
 

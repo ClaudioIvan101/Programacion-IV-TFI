@@ -22,7 +22,7 @@ export const screenApiRoutes = {
     ['POST /api/leads/:leadId/conversations', 'Abre una conversación para el interesado.', 'leads', 'frontend/src/features/dashboard/dashboardApi.js · createConversation()'],
     ['GET /api/conversations/:conversationId/messages', 'Carga los mensajes de la conversación.', 'leads', 'frontend/src/features/dashboard/dashboardApi.js · listMessages()'],
     ['GET /api/conversations/:conversationId/context', 'Carga el contexto guardado del asistente.', 'leads', 'frontend/src/features/dashboard/dashboardApi.js · conversationContext()'],
-    ['POST /api/conversations/:conversationId/turn', 'Envía el mensaje y devuelve el contexto del interesado, los campos faltantes y la respuesta del asistente.', 'leads', 'frontend/src/features/dashboard/dashboardApi.js · sendMessage()'],
+    ['POST /api/conversations/:conversationId/turn', 'Envía el mensaje y devuelve el resultado del asistente o solicita revisión humana si la IA no responde.', 'leads', 'frontend/src/features/dashboard/dashboardApi.js · sendMessage()'],
   ],
   campanas: [
     ['GET /api/campaigns', 'Lista las campañas al abrir o cambiar de página; envía page y limit=20.', 'campaigns', 'frontend/src/features/capture/captureApi.js · listCampaigns()'],

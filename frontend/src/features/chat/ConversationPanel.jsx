@@ -60,13 +60,13 @@ export function ConversationPanel({ api, lead }) {
               label: 'Conversación ' + (index + 1) + ' · ' + new Date(createdAt).toLocaleString('es-AR'),
             }))} />
         )}
-        {conversationId && <MessageThread key={conversationId} api={api} conversationId={conversationId} />}
+        {conversationId && <MessageThread key={conversationId} api={api} conversationId={conversationId} leadId={lead.id} />}
       </Stack>
     </Paper>
   );
 }
 
-function MessageThread({ api, conversationId }) {
+function MessageThread({ api, conversationId, leadId }) {
   const [messages, setMessages] = useState(null);
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -76,6 +76,7 @@ function MessageThread({ api, conversationId }) {
   const [context, setContext] = useState(null);
   const [contextError, setContextError] = useState('');
   const lastTurn = messages?.findLast((message) => message.turnResult)?.turnResult;
+  const humanReviewRequired = lastTurn?.humanReviewRequired === true;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -133,7 +134,8 @@ function MessageThread({ api, conversationId }) {
           {messages?.length === 0 && <Text c="dimmed" size="sm">Todavía no hay mensajes.</Text>}
           {messages?.map((message) => (
             <div key={message.id} className={'dashboard-message' + (message.role === 'lead' ? ' dashboard-message-lead' : '')}>
-              <Text size="xs" fw={700}>{message.role === 'lead' ? 'Interesado' : 'Asistente'}</Text>
+              <Text size="xs" fw={700}>{message.role === 'lead' ? 'Interesado'
+                : message.turnResult?.humanReviewRequired ? 'Revisión humana' : 'Asistente'}</Text>
               <Text size="sm">{message.content}</Text>
               {message.turnResult && <TurnJson turn={message.turnResult} />}
             </div>
@@ -160,7 +162,14 @@ function MessageThread({ api, conversationId }) {
               {suggested.budgetAmount != null && <Text size="sm">Presupuesto: {suggested.budgetAmount} {suggested.budgetCurrency ?? '(moneda sin confirmar)'}</Text>}
             </Stack>}
         </Paper>
-        {lastTurn && <TurnResult turn={lastTurn} />}
+        {humanReviewRequired
+          ? <Alert color="yellow" title="Revisión humana requerida" role="status">
+            <Text size="sm">El mensaje se guardó sin agregar datos al contexto. Podés continuar con la calificación manual.</Text>
+            <Button component="a" href={leadRoute('calificacion', leadId)} variant="light" size="compact-sm" mt="xs">
+              Ir a calificación manual
+            </Button>
+          </Alert>
+          : lastTurn && <TurnResult turn={lastTurn} />}
       </Stack>
     </div>
   );

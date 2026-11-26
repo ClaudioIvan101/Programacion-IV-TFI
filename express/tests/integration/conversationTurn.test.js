@@ -2,7 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createApp } from "../../src/app.js";
-import { ConversationTurnError } from "../../src/domain/ai/runConversationTurn.js";
+import { ConversationTurnError, makeRunConversationTurn } from "../../src/domain/ai/runConversationTurn.js";
 
 const conversationId = "11111111-1111-4111-8111-111111111111";
 const missingId = "22222222-2222-4222-8222-222222222222";
@@ -67,6 +67,32 @@ test("un turno válido responde 200 con la próxima pregunta", async () => {
   assert.deepEqual(await response.json(), result);
   // La ruta entrega solo la conversación y el texto nuevo al caso de uso.
   assert.deepEqual(received, { conversationId, content: "Hola" });
+});
+
+test("un fallo definitivo de la IA guarda el mensaje y devuelve revisión humana", async () => {
+  const saved = [];
+  handler = makeRunConversationTurn({
+    conversationTurnRepository: {
+      loadTurn: async () => ({ version: "17", context: null, messages: [] }),
+      saveTurn: async (turn) => { saved.push(turn); },
+    },
+    aiGateway: {
+      structuredCompletion: async () => {
+        throw Object.assign(new Error("detalle privado"), { code: "HTTP_ERROR", status: 502 });
+      },
+    },
+  });
+
+  const response = await postTurn();
+  assert.equal(response.status, 200);
+  const handoff = await response.json();
+  assert.equal(handoff.humanReviewRequired, true);
+  assert.equal(handoff.context, undefined);
+  assert.doesNotMatch(handoff.assistantMessage, /detalle privado/);
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].leadContent, "Hola");
+  assert.equal(saved[0].context, null);
+  assert.deepEqual(saved[0].turnResult, handoff);
 });
 
 test("solo administración puede consultar sugerencias guardadas de una conversación", async () => {

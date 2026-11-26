@@ -13,6 +13,8 @@ const MAX_MESSAGES = 40;
 // El gateway rechaza deadlines de más de 15 s. Se pide menos para dejar margen
 // a la red y al propio procesamiento del gateway.
 const TURN_BUDGET_MS = 10_000;
+const PROVIDER_HTTP_FAILURES = new Set([502, 503, 504]);
+const PROVIDER_CLIENT_FAILURES = new Set(["TIMEOUT", "TRANSPORT", "INVALID_RESPONSE"]);
 
 export class ConversationTurnError extends Error {
   constructor(code) {
@@ -105,6 +107,27 @@ export function makeRunConversationTurn({
     const turnAt = now();
     const deadline = new Date(turnAt.getTime() + TURN_BUDGET_MS).toISOString();
 
+    async function persist(result, context) {
+      const saved = await conversationTurnRepository.saveTurn({
+        conversationId,
+        version: turn.version,
+        leadContent: content,
+        assistantContent: result.assistantMessage,
+        context,
+        turnAt,
+        turnResult: result,
+      });
+      if (saved === null) throw new ConversationTurnError("TURN_CONFLICT");
+      return result;
+    }
+
+    function requestHumanReview() {
+      return persist({
+        assistantMessage: "El asistente no pudo responder. Este mensaje requiere revisión humana.",
+        humanReviewRequired: true,
+      }, turn.context);
+    }
+
     let responseBody;
     try {
       responseBody = await aiGateway.structuredCompletion(request, {
@@ -113,11 +136,13 @@ export function makeRunConversationTurn({
         deadline,
       });
     } catch (error) {
-      // Los fallos del gateway se traducen sin propagar cuerpos ni detalles.
-      const code = error?.code === "HTTP_ERROR" && error.status === 503 ? "SERVICE_UNAVAILABLE"
-        : error?.code === "HTTP_ERROR" && error.status === 504 ? "DEADLINE_EXCEEDED"
-          : error?.code ?? "TRANSPORT";
-      throw new ConversationTurnError(code);
+      // El gateway ya agotó su política de reintentos. No iniciar otro intento
+      // ni tratar errores de autenticación o de solicitud como fallos del proveedor.
+      if (PROVIDER_CLIENT_FAILURES.has(error?.code) ||
+          (error?.code === "HTTP_ERROR" && PROVIDER_HTTP_FAILURES.has(error.status))) {
+        return requestHumanReview();
+      }
+      throw new ConversationTurnError(error?.code ?? "INTERNAL_ERROR");
     }
 
     let processed;
@@ -128,7 +153,7 @@ export function makeRunConversationTurn({
       // nuestro, no del proveedor.
       throw new ConversationTurnError("INVALID_CONTEXT");
     }
-    if (!processed.ok) throw new ConversationTurnError(processed.code);
+    if (!processed.ok) return requestHumanReview();
 
     const { data } = processed.response;
     const result = {
@@ -139,17 +164,6 @@ export function makeRunConversationTurn({
       // El cliente sabe que debe preguntar por la moneda del presupuesto.
       needsBudgetCurrencyClarification: processed.needsBudgetCurrencyClarification,
     };
-    const saved = await conversationTurnRepository.saveTurn({
-      conversationId,
-      version: turn.version,
-      leadContent: content,
-      assistantContent: data.assistant_message,
-      context: processed.context,
-      turnAt,
-      turnResult: result,
-    });
-    if (saved === null) throw new ConversationTurnError("TURN_CONFLICT");
-
-    return result;
+    return persist(result, processed.context);
   };
 }
