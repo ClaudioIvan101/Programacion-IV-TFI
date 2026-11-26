@@ -4,6 +4,7 @@ No conoce Django ni HTTP. Recibe la carga ya validada y un presupuesto de tiempo
 en segundos; devuelve la respuesta del contrato T4 con su latencia medida.
 """
 
+from math import isfinite
 from time import monotonic
 
 from ..infra.fake_provider import fake_completion
@@ -22,7 +23,18 @@ class CompletionFailure(Exception):
         self.code = code
 
 
-def complete(payload, *, deadline_seconds):
+def fake_provider(payload, *, timeout, retry):
+    """Selecciona el escenario determinista para pruebas."""
+    context = payload["context"]
+    partial = not (
+        all(value is not None for value in context.values())
+        and all(value is not None for value in context["contacto"].values())
+        and context["presupuesto"]["moneda"] is not None
+    )
+    return fake_completion(partial=partial)
+
+
+def complete(payload, *, deadline_seconds, provider, retry_invalid=False):
     """Ejecuta el proveedor y garantiza que el resultado respete el contrato T4.
 
     `deadline_seconds` es el presupuesto restante que calculó el adaptador HTTP.
@@ -31,39 +43,50 @@ def complete(payload, *, deadline_seconds):
     """
     started = monotonic()
 
-    # 1. Si faltan datos del contexto, selecciona el ejemplo parcial.
-    context = payload["context"]
-    partial = not (
-        all(value is not None for value in context.values())
-        and all(value is not None for value in context["contacto"].values())
-        and context["presupuesto"]["moneda"] is not None
-    )
+    usage = {"input_tokens": 0, "output_tokens": 0}
+    for attempt in range(2 if retry_invalid else 1):
+        remaining = deadline_seconds - (monotonic() - started)
+        if remaining <= 0:
+            raise CompletionFailure("DEADLINE_EXCEEDED")
+        try:
+            response = provider(payload, timeout=remaining, retry=bool(attempt))
+        except TimeoutError:
+            raise CompletionFailure("DEADLINE_EXCEEDED") from None
+        except OSError:
+            raise CompletionFailure("SERVICE_UNAVAILABLE") from None
+        except ValueError:
+            continue
+        except Exception:
+            raise CompletionFailure("INTERNAL_ERROR") from None
 
-    # 2. Pide al proveedor simulado que cargue el JSON completo o parcial.
-    try:
-        response = fake_completion(partial=partial)
-    except OSError:
-        raise CompletionFailure("SERVICE_UNAVAILABLE") from None
-    except ValueError:
-        raise CompletionFailure("INVALID_PROVIDER_RESPONSE")
-    except Exception:
-        raise CompletionFailure("INTERNAL_ERROR") from None
+        # Los intentos rechazados también consumen tokens si llegaron con métricas válidas.
+        attempt_usage = response.get("usage") if isinstance(response, dict) else None
+        if isinstance(attempt_usage, dict):
+            for key in usage:
+                count = attempt_usage.get(key)
+                if type(count) is int and count >= 0:
+                    usage[key] += count
+        if _valid_response(response):
+            elapsed = monotonic() - started
+            if elapsed > deadline_seconds:
+                raise CompletionFailure("DEADLINE_EXCEEDED")
+            return {**response, "usage": usage, "latency_ms": int(elapsed * 1000)}
 
-    # 3. Comprueba que la respuesta cumpla el contrato T4.
+    if monotonic() - started > deadline_seconds:
+        raise CompletionFailure("DEADLINE_EXCEEDED")
+    raise CompletionFailure("INVALID_PROVIDER_RESPONSE")
+
+
+def _valid_response(response):
     if not RESPONSE_VALIDATOR.is_valid(response):
-        raise CompletionFailure("INVALID_PROVIDER_RESPONSE")
+        return False
 
     data = response["data"]
     budget = data["extracted_data"]["presupuesto"]
-    # 4. La pregunta debe apuntar a un campo faltante. Si falta la moneda, el presupuesto queda pendiente.
+    # Coherencia interna: la pregunta de seguimiento debe estar entre los
+    # campos faltantes, y una moneda nula debe declararse como faltante.
     if data["next_question_key"] is not None and data["next_question_key"] not in data["missing_fields"]:
-        raise CompletionFailure("INVALID_PROVIDER_RESPONSE")
-    if budget is not None and budget["moneda"] is None and "presupuesto" not in data["missing_fields"]:
-        raise CompletionFailure("INVALID_PROVIDER_RESPONSE")
-
-    # 5. Comprueba el plazo y devuelve cuánto tardó la respuesta.
-    elapsed = monotonic() - started
-    if elapsed > deadline_seconds:
-        raise CompletionFailure("DEADLINE_EXCEEDED")
-
-    return {**response, "latency_ms": int(elapsed * 1000)}
+        return False
+    return budget is None or (
+        isfinite(budget["monto"]) and (budget["moneda"] is not None or "presupuesto" in data["missing_fields"])
+    )

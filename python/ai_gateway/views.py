@@ -6,6 +6,8 @@ vuelve a traducir el resultado. Las precondiciones viven en
 ni reglas de negocio ni políticas de autenticación.
 """
 
+from functools import partial
+
 from django.conf import settings
 from django.http import Http404
 
@@ -13,7 +15,8 @@ from .http.errors import error_response, service_error_response
 from .http.preconditions import RequestRejected, open_request, request_identifier
 from .http.responses import json_response
 from .infra.fake_provider import fake_completion
-from .services.structured_completions import CompletionFailure, complete
+from .infra.gemini_provider import gemini_completion
+from .services.structured_completions import CompletionFailure, complete, fake_provider
 
 
 def structured_completions(request):
@@ -36,9 +39,18 @@ def structured_completions(request):
 
     # 3. Caso de uso: no conoce Django ni HTTP, solo el presupuesto de tiempo.
     try:
+        use_gemini = settings.AI_GATEWAY_PROVIDER == "gemini"
+        if use_gemini and settings.GEMINI_API_KEY:
+            provider = partial(gemini_completion, api_key=settings.GEMINI_API_KEY)
+        elif settings.AI_GATEWAY_PROVIDER == "fake":
+            provider = fake_provider
+        else:
+            raise CompletionFailure("SERVICE_UNAVAILABLE")
         response = complete(
             gateway_request.payload,
             deadline_seconds=gateway_request.deadline_seconds,
+            provider=provider,
+            retry_invalid=use_gemini,
         )
     except CompletionFailure as failure:
         return service_error_response(failure, request_id=request_id, head=head)
@@ -54,11 +66,14 @@ def probe(request, *, check_provider=False):
         return json_response(405, {"error": "Method not allowed"}, {"Allow": "GET, HEAD"})
 
     head = request.method == "HEAD"
-    # /ready verifica que el adaptador pueda cargar ambos ejemplos T4.
+    # /ready no genera texto ni consume cuota de Gemini.
     if check_provider:
         try:
-            fake_completion()
-            fake_completion(partial=True)
+            if settings.AI_GATEWAY_PROVIDER == "fake":
+                fake_completion()
+                fake_completion(partial=True)
+            elif settings.AI_GATEWAY_PROVIDER != "gemini" or not settings.GEMINI_API_KEY:
+                return json_response(503, {"status": "unavailable"}, head=head)
         except (OSError, ValueError):
             return json_response(503, {"status": "unavailable"}, head=head)
 

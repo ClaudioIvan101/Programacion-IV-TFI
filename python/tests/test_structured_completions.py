@@ -6,11 +6,13 @@ no se parchea la autenticación.
 """
 
 import json
+from io import BytesIO
 import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 import jwt
 from cryptography.hazmat.primitives import serialization
@@ -31,6 +33,7 @@ def example(name):
     return json.loads((EXAMPLES / f"{name}.json").read_text(encoding="utf-8"))
 
 
+@override_settings(AI_GATEWAY_PROVIDER="fake")
 class StructuredCompletionsTests(SimpleTestCase):
     @classmethod
     def setUpClass(cls):
@@ -204,6 +207,68 @@ class StructuredCompletionsTests(SimpleTestCase):
         self.assertEqual(response["Allow"], "POST")
 
     # --- Fallos del proveedor ----------------------------------------------
+
+    def gemini_response(self, text):
+        return BytesIO(json.dumps({
+            "status": "completed",
+            "model": "gemini-3.1-flash-lite",
+            "steps": [{"type": "model_output", "content": [{"type": "text", "text": text}]}],
+            "usage": {"total_input_tokens": 20, "total_output_tokens": 9},
+        }).encode())
+
+    @override_settings(AI_GATEWAY_PROVIDER="gemini", GEMINI_API_KEY="test-key")
+    def test_gemini_gets_conversation_and_retries_an_invalid_response(self):
+        request = example("request-partial")
+        request["messages"][0]["content"] = "Quiero comprar, tengo 500 mil dólares"
+        request["context"]["presupuesto"] = None
+        expected = example("response-follow-up")["data"]
+        expected["extracted_data"].update(necesidades="Comprar", presupuesto={"monto": 500000, "moneda": "USD"})
+        expected.update(
+            assistant_message="¿En qué zona querés comprar?",
+            summary="Quiere comprar con USD 500.000; no indicó ubicación ni plazo.",
+            next_question_key="necesidades",
+            missing_fields=["contacto", "necesidades", "urgencia"],
+        )
+        with patch("ai_gateway.infra.gemini_provider.urlopen", side_effect=[
+            self.gemini_response('{"bad":true}'),
+            self.gemini_response(json.dumps(expected)),
+        ]) as call:
+            response = self.post(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"], expected)
+        self.assertEqual(response.json()["usage"], {"input_tokens": 40, "output_tokens": 18})
+        self.assertEqual(call.call_count, 2)
+        sent = call.call_args.args[0]
+        self.assertEqual(sent.get_header("X-goog-api-key"), "test-key")
+        body = json.loads(sent.data)
+        self.assertEqual(json.loads(body["input"]), {"messages": request["messages"], "context": request["context"]})
+        self.assertIn("dólares".encode(), sent.data)
+        self.assertFalse(body["store"])
+        self.assertEqual(body["generation_config"]["max_output_tokens"], request["max_tokens"])
+        self.assertIn("previous output failed validation", body["system_instruction"])
+        self.assertEqual(body["response_format"]["mime_type"], "application/json")
+        self.assertGreater(call.call_args_list[0].kwargs["timeout"], call.call_args.kwargs["timeout"])
+
+    @override_settings(AI_GATEWAY_PROVIDER="gemini", GEMINI_API_KEY="test-key")
+    def test_gemini_returns_typed_failure_after_one_retry(self):
+        with patch("ai_gateway.infra.gemini_provider.urlopen", side_effect=[
+            self.gemini_response("not-json"),
+            self.gemini_response("{}"),
+        ]) as call:
+            self.assert_error(self.post(example("request-partial")), 502, "INVALID_PROVIDER_RESPONSE")
+        self.assertEqual(call.call_count, 2)
+
+    @override_settings(AI_GATEWAY_PROVIDER="gemini", GEMINI_API_KEY="")
+    def test_gemini_does_not_fall_back_to_fake_without_key(self):
+        self.assert_error(self.post(example("request-partial")), 503, "SERVICE_UNAVAILABLE")
+
+    @override_settings(AI_GATEWAY_PROVIDER="gemini", GEMINI_API_KEY="test-key")
+    def test_gemini_overload_does_not_retry_or_leak_provider_details(self):
+        unavailable = HTTPError("https://example.test", 503, "private detail", {}, None)
+        with patch("ai_gateway.infra.gemini_provider.urlopen", side_effect=unavailable) as call:
+            self.assert_error(self.post(example("request-partial")), 503, "SERVICE_UNAVAILABLE")
+        call.assert_called_once()
 
     def test_handles_provider_failures(self):
         with patch(

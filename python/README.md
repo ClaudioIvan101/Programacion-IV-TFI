@@ -15,8 +15,10 @@ python -m django check --settings=backend.settings
 ```
 
 `GET /health` en `http://127.0.0.1:8000` devuelve `{"status": "ok"}` si el proceso
-responde. `GET /ready` comprueba que el proveedor falso pueda cargar las dos
-respuestas T4; devuelve 503 si no puede. Detener el servidor con Ctrl+C.
+responde. `GET /ready` comprueba que Gemini tenga una clave configurada, sin llamar
+a Google. Con el proveedor falso, comprueba que se puedan cargar los dos ejemplos
+T4. Devuelve 503 si el proveedor no está configurado o el falso no puede cargar
+los ejemplos. Detener el servidor con Ctrl+C.
 `HOST` usa `127.0.0.1` por defecto; `PORT` usa `8000` y admite enteros entre 0 y
 65535. El puerto 0 se asigna automáticamente y se informa al iniciar. Las
 variables se leen del entorno del proceso, no de un archivo `.env`. Si la
@@ -35,13 +37,42 @@ código 1 y un mensaje breve.
 | `ai_gateway/http/` | Precondiciones del contrato T4, respuestas JSON y sobre de error. |
 | `ai_gateway/services/` | Coordinar la respuesta estructurada de T4 sin depender de HTTP. |
 | `ai_gateway/validators/` | Cargar los esquemas T4 y validar solicitudes y respuestas. |
-| `ai_gateway/infra/` | Adaptador de datos sintéticos y verificador RS256 del JWT de servicio. |
+| `ai_gateway/infra/` | Adaptadores Gemini y falso, y verificador RS256 del JWT de servicio. |
 | `tests/` | Pruebas de configuración, respuestas, rutas, JWT y HTTP real en un puerto temporal. |
 
 La ruta `POST /v1/structured-completions` exige un JWT de servicio RS256 emitido
 por `core-api`, con independencia de `AI_GATEWAY_ENV`. Sin credenciales responde
 `401` con `WWW-Authenticate: Bearer`; si la clave pública no está configurada,
-responde `503`. El modo de ejecución solo habilita las rutas de demo.
+responde `503`. `AI_GATEWAY_ENV` solo habilita las rutas de demo.
+
+## Proveedor Gemini
+
+El gateway usa Gemini 3.1 Flash-Lite por defecto. Configure `GEMINI_API_KEY` solo
+en el entorno del gateway; no la guarde en Git ni la exponga a Express o al
+frontend. Para levantar el chat con la integración T4 existente desde PowerShell:
+
+```powershell
+$secret = Read-Host "Gemini API key" -AsSecureString
+try {
+    $env:GEMINI_API_KEY = [System.Net.NetworkCredential]::new("", $secret).Password
+    $env:AI_GATEWAY_PROVIDER = "gemini"
+    node scripts/compose-t4.mjs up --build -d
+} finally {
+    Remove-Item Env:GEMINI_API_KEY,Env:AI_GATEWAY_PROVIDER -ErrorAction SilentlyContinue
+    $secret.Dispose()
+}
+```
+
+Ejecute el lanzador desde la raíz, con las claves JWT de servicio ya generadas.
+Use datos sintéticos para la prueba de extremo a extremo: Gemini recibe el
+mensaje y contexto del turno. Pruebe «Quiero comprar, tengo 500 mil dólares»:
+el chat debería proponer USD 500.000 sin inventar ubicación ni plazo.
+
+Django solicita JSON y valida el T4 localmente. Solo reintenta una respuesta
+inválida y comparte el plazo de la solicitud entre ambos intentos. Un fallo
+agotado se devuelve a Express; Gemini nunca se reemplaza silenciosamente por una
+respuesta ficticia. Use `AI_GATEWAY_PROVIDER=fake` únicamente para pruebas o demos
+con datos sintéticos.
 
 ## Prueba HTTP Express → Django
 
@@ -72,6 +103,7 @@ solo `ai-gateway`. El puerto 3100 queda dentro de Docker.
 
 ```powershell
 $env:AI_GATEWAY_ENV = 'development'
+$env:AI_GATEWAY_PROVIDER = 'fake'
 docker compose --env-file .env.example -p leadqual-demo up --build --wait --no-deps ai-gateway
 
 foreach ($scenario in 'complete', 'partial') {
@@ -96,5 +128,5 @@ responden 404.
 
 ```powershell
 docker compose --env-file .env.example -p leadqual-demo down
-Remove-Item Env:AI_GATEWAY_ENV
+Remove-Item Env:AI_GATEWAY_ENV,Env:AI_GATEWAY_PROVIDER
 ```

@@ -71,6 +71,8 @@ services:
       HOST: "0.0.0.0"
       PORT: "3100"
       AI_GATEWAY_ENV: "${AI_GATEWAY_ENV:-production}"
+      AI_GATEWAY_PROVIDER: "${AI_GATEWAY_PROVIDER:-gemini}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
     networks:
       - backend
     healthcheck:

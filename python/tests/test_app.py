@@ -44,11 +44,13 @@ class AppTests(unittest.TestCase):
         self.assertGreater(int(headers["Content-Length"]), 0)
         self.assertEqual(body, b"")
 
+    @override_settings(AI_GATEWAY_PROVIDER="fake")
     def test_ready_loads_both_fake_responses(self):
         status, _, body = self.request("/ready")
         self.assertEqual(status, "200 OK")
         self.assertEqual(json.loads(body), {"status": "ok"})
 
+    @override_settings(AI_GATEWAY_PROVIDER="fake")
     def test_ready_reports_fake_provider_failure_without_affecting_health(self):
         for error in (FileNotFoundError("private path"), ValueError("private content")):
             with self.subTest(error=type(error)):
