@@ -1,8 +1,10 @@
-import { Alert, Badge, Button, Group, Paper, Select, Stack, Table, Text, Title } from '@mantine/core';
+import { Alert, Button, Group, Paper, Select, Stack, Table, Text, TextInput, Title } from '@mantine/core';
 import { useEffect, useMemo, useState } from 'react';
 import { assignmentApi, formatResponseTime, notificationLabels } from '../assignments/assignmentApi.js';
 import { createCaptureApi, listAllCampaigns } from '../capture/captureApi.js';
 import { leadRoute } from '../workspace/workspaceRoute.js';
+import { LeadRegistration } from '../chat/LeadRegistration.jsx';
+import { campaignDistribution, filterDashboardLeads, relativeScoreWidth } from './dashboardView.js';
 import { dashboardApi, leadLabel, loadLeadOverview } from './dashboardApi.js';
 import './dashboard.css';
 
@@ -22,6 +24,9 @@ export function Dashboard({ accessToken, onUnauthorized }) {
   const [origins, setOrigins] = useState({ campaigns: [], forms: [] });
   const [originError, setOriginError] = useState(false);
   const [campaign, setCampaign] = useState(null);
+  const [search, setSearch] = useState('');
+  const [registering, setRegistering] = useState(false);
+  const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
@@ -60,8 +65,11 @@ export function Dashboard({ accessToken, onUnauthorized }) {
   for (const { campaignId } of overview?.leads ?? []) {
     if (campaignId && !campaignNames.has(campaignId)) campaignNames.set(campaignId, 'Campaña ' + campaignId.slice(0, 8));
   }
-  const visibleLeads = overview?.leads.toReversed().filter((lead) =>
-    campaign === null || (campaign === 'none' ? !lead.campaignId : lead.campaignId === campaign));
+  const allLeads = overview?.leads ?? [];
+  const visibleLeads = filterDashboardLeads(allLeads, campaign, search).toReversed();
+  const distribution = campaignDistribution(allLeads, campaignNames);
+  const maxCampaignVolume = Math.max(...distribution.map(({ count }) => count), 1);
+  const maxScore = allLeads.reduce((max, { score }) => Number.isFinite(score) ? Math.max(max, score) : max, 0);
   const counts = overview?.counts;
   const assignedByLead = new Map(handoff?.assignments.map((row) => [row.leadId, row]));
 
@@ -69,7 +77,7 @@ export function Dashboard({ accessToken, onUnauthorized }) {
     <Group justify="space-between" align="end">
       <div>
         <Text className="auth-label" fw={700} size="xs">CAPTACIÓN Y SEGUIMIENTO</Text>
-        <Title id="dashboard-title" order={1}>Bandeja de interesados</Title>
+        <Title id="dashboard-title" order={1}>Resumen</Title>
         <Text c="dimmed" size="sm" mt="xs">Del origen de la consulta a la calificación comercial.</Text>
       </div>
       <Group gap="xs">
@@ -83,68 +91,107 @@ export function Dashboard({ accessToken, onUnauthorized }) {
         ['Recibidos', counts?.total],
         ['Calificados', counts?.qualified],
         ['Pendientes', counts?.pending],
+        ['Derivados visibles', handoff?.assignments.length],
       ].map(([label, count]) => <Paper className="dashboard-panel dashboard-count" withBorder key={label}>
         <Text size="sm" fw={600} c="dimmed">{label}</Text>
         <Text className="dashboard-count-value" fw={700}>{count ?? '—'}</Text>
       </Paper>)}
     </div>
     {counts?.qualified === null && <Alert color="yellow" role="status">No se pudieron consultar todas las calificaciones. El total de interesados sigue disponible.</Alert>}
-    <Paper className="dashboard-panel" withBorder>
-      <Stack gap="sm">
-        <Group justify="space-between" align="end">
-          <div>
-            <Title order={2} size="h4">Consultas recibidas</Title>
-            <Text size="sm" c="dimmed">Último puntaje guardado. El filtro solo aplica al listado.</Text>
-          </div>
-          <Select label="Filtrar por campaña" placeholder="Todas las campañas" clearable searchable value={campaign}
+    <Paper className="dashboard-panel dashboard-distribution" withBorder>
+      <Title order={2} size="h4">Distribución por campaña</Title>
+      <Text size="xs" c="dimmed">Volumen actual de consultas por origen.</Text>
+      {overview ? <ul className="dashboard-distribution-list">
+        {distribution.map(({ id, label, count }) => (
+          <li key={id ?? 'none'}>
+            <div className="dashboard-distribution-label"><span>{label}</span><strong>{count}</strong></div>
+            <div className="dashboard-distribution-track" aria-hidden="true">
+              <span style={{ width: 100 * count / maxCampaignVolume + '%' }} />
+            </div>
+          </li>
+        ))}
+      </ul> : <Text size="sm" c="dimmed" role="status" mt="sm">
+        {loading ? 'Cargando distribución…' : 'Distribución no disponible.'}
+      </Text>}
+    </Paper>
+    <Paper className="dashboard-panel dashboard-inbox" withBorder>
+      <header className="dashboard-inbox-head">
+        <Title order={2} size="h4">Bandeja de interesados</Title>
+        <Text size="xs" c="dimmed">Origen, puntaje de calificación, estado de derivación y accesos de seguimiento.</Text>
+        <Group className="dashboard-inbox-controls" gap="xs" align="center">
+          <Select aria-label="Filtrar por campaña" placeholder="Todas las campañas" clearable searchable value={campaign}
             onChange={setCampaign} data={[{ value: 'none', label: 'Sin campaña' },
               ...Array.from(campaignNames, ([value, label]) => ({ value, label }))]} />
+          <TextInput aria-label="Filtrar por nombre o contacto" placeholder="Filtrar interesado o contacto…"
+            value={search} onChange={(event) => setSearch(event.currentTarget.value)} />
+          <Button size="sm" onClick={() => { setNotice(''); setRegistering(true); }}>+ Registrar interesado</Button>
         </Group>
-        {originError && <Text size="sm" c="dimmed">No se pudieron cargar todos los nombres de campaña o formulario.</Text>}
-        {!overview && loading && <Text role="status" size="sm">Cargando interesados…</Text>}
-        {visibleLeads?.length === 0 && <Text c="dimmed" size="sm">{campaign
+        {notice && <Text role="status" mt="xs" size="sm" c="green">{notice}</Text>}
+        {originError && <Text size="sm" c="dimmed" mt="xs">No se pudieron cargar todos los nombres de campaña o formulario.</Text>}
+        {!overview && loading && <Text role="status" size="sm" mt="xs">Cargando interesados…</Text>}
+        {overview && visibleLeads.length === 0 && <Text c="dimmed" size="sm" mt="xs">{campaign || search.trim()
           ? 'No hay consultas para este filtro.'
           : 'Todavía no hay consultas. Cree y comparta un formulario para recibir interesados.'}</Text>}
-        {visibleLeads?.length > 0 && <Table.ScrollContainer minWidth={770}>
-          <Table verticalSpacing="sm" highlightOnHover>
-            <Table.Thead><Table.Tr>
-              <Table.Th>Interesado</Table.Th><Table.Th>Origen</Table.Th><Table.Th>Calificación</Table.Th>
-              <Table.Th>Derivación</Table.Th><Table.Th>Seguimiento</Table.Th>
-            </Table.Tr></Table.Thead>
-            <Table.Tbody>{visibleLeads.map((lead) => {
-              const [status, color] = decisions[lead.decision] ?? ['No disponible', 'gray'];
-              const assigned = assignedByLead.get(lead.id);
-              return <Table.Tr key={lead.id}>
-                <Table.Td><Text size="sm" fw={600}>{leadLabel(lead)}</Text></Table.Td>
-                <Table.Td>
-                  <Text size="sm" fw={600}>{lead.campaignId ? campaignNames.get(lead.campaignId) : 'Sin campaña'}</Text>
-                  <Text size="xs" c="dimmed">{lead.formId ? formNames.get(lead.formId) ?? 'Formulario ' + lead.formId.slice(0, 8)
-                    : channels[lead.channel] ?? 'Sin canal registrado'}</Text>
-                </Table.Td>
-                <Table.Td>
-                  <Badge variant="light" color={color}>{status}</Badge>
-                  <Text size="xs" c="dimmed" mt={4}>{lead.score == null ? 'Sin puntaje'
-                    : lead.score + ' puntos · v' + lead.ruleSetVersion}</Text>
-                </Table.Td>
-                <Table.Td>
-                  {assigned ? <>
-                    <Text size="sm" fw={600}>{assigned.sellerName}</Text>
-                    <Text size="xs" c="dimmed">{notificationLabels[assigned.notificationStatus]?.[0] ?? 'Aviso sin estado'}</Text>
-                    <Text size="xs" c="dimmed">{formatResponseTime(assigned.responseSeconds)}</Text>
-                    <Button component="a" href={leadRoute('derivacion', lead.id)} size="compact-xs" variant="subtle">Ver derivación</Button>
-                  </> : handoff?.canManage && lead.decision === 'qualified'
-                    ? <Button component="a" href={leadRoute('derivacion', lead.id)} size="compact-sm" variant="light">Derivar</Button>
-                    : <Text size="xs" c="dimmed">{handoff ? 'Sin derivación visible' : 'Derivación no disponible'}</Text>}
-                </Table.Td>
-                <Table.Td><Group gap="xs" wrap="nowrap">
-                  <Button component="a" href={leadRoute('chat', lead.id)} size="compact-sm" variant="light">Chat</Button>
-                  <Button component="a" href={leadRoute('calificacion', lead.id)} size="compact-sm" variant="subtle">Calificación</Button>
-                </Group></Table.Td>
-              </Table.Tr>;
-            })}</Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>}
-      </Stack>
+      </header>
+      {visibleLeads.length > 0 && <Table.ScrollContainer minWidth={880}>
+        <Table className="dashboard-inbox-table" highlightOnHover verticalSpacing="sm">
+          <Table.Thead><Table.Tr>
+            <Table.Th>Interesado</Table.Th><Table.Th>Origen / Campaña</Table.Th><Table.Th>Puntaje</Table.Th>
+            <Table.Th>Estado</Table.Th><Table.Th>Derivación</Table.Th><Table.Th>Seguimiento</Table.Th>
+          </Table.Tr></Table.Thead>
+          <Table.Tbody>{visibleLeads.map((lead) => {
+            const [status, color] = decisions[lead.decision] ?? ['No disponible', 'gray'];
+            const assigned = assignedByLead.get(lead.id);
+            return <Table.Tr key={lead.id}>
+              <Table.Td>
+                <Text size="sm" fw={600}>{leadLabel(lead)}</Text>
+                {lead.name && (lead.email || lead.phone) && <Text size="xs" c="dimmed">{lead.email || lead.phone}</Text>}
+              </Table.Td>
+              <Table.Td>
+                <Text size="sm" fw={600}>{lead.campaignId ? campaignNames.get(lead.campaignId) : 'Sin campaña'}</Text>
+                <Text size="xs" c="dimmed">{lead.formId ? formNames.get(lead.formId) ?? 'Formulario ' + lead.formId.slice(0, 8)
+                  : channels[lead.channel] ?? 'Sin canal registrado'}</Text>
+              </Table.Td>
+              <Table.Td>
+                <div className="dashboard-score" title={lead.score == null ? 'Sin puntaje' : 'Barra relativa al mayor puntaje positivo de la bandeja'}>
+                  <div className="dashboard-distribution-track" aria-hidden="true">
+                    <span data-decision={lead.decision} style={{ width: relativeScoreWidth(lead.score, maxScore) + '%' }} />
+                  </div>
+                  <strong aria-label={lead.score == null ? 'Sin puntaje' : lead.score + ' puntos'}>{lead.score ?? '—'}</strong>
+                </div>
+                {lead.ruleSetVersion != null && <Text size="xs" c="dimmed">Versión {lead.ruleSetVersion}</Text>}
+              </Table.Td>
+              <Table.Td><span className="dashboard-inbox-status" data-color={color}>{status}</span></Table.Td>
+              <Table.Td>
+                {assigned ? <>
+                  <Text size="sm" fw={600}>{assigned.sellerName}</Text>
+                  <span className="dashboard-inbox-status" data-color={notificationLabels[assigned.notificationStatus]?.[1]}>
+                    {notificationLabels[assigned.notificationStatus]?.[0] ?? 'Aviso sin estado'}
+                  </span>
+                  {assigned.responseSeconds != null && <Text size="xs" c="dimmed">{formatResponseTime(assigned.responseSeconds)}</Text>}
+                </> : <Text size="xs" c="dimmed">{handoff?.canManage ? 'Sin asignar' : handoff ? 'Sin derivación visible' : 'No disponible'}</Text>}
+              </Table.Td>
+              <Table.Td><Group className="dashboard-inbox-actions" justify="flex-end" gap="xs" wrap="nowrap">
+                <Button component="a" href={leadRoute('chat', lead.id)} size="compact-sm" variant="default">Chat</Button>
+                <Button component="a" href={leadRoute('calificacion', lead.id)} size="compact-sm" variant="default">Calificar</Button>
+                {assigned
+                  ? <Button component="a" href={leadRoute('derivacion', lead.id)} size="compact-sm" variant="default">Ver derivación</Button>
+                  : handoff?.canManage && lead.decision === 'qualified'
+                    ? <Button component="a" href={leadRoute('derivacion', lead.id)} size="compact-sm" variant="default">Derivar</Button>
+                    : <Button size="compact-sm" variant="default" disabled>Derivar</Button>}
+              </Group></Table.Td>
+            </Table.Tr>;
+          })}</Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>}
     </Paper>
+    {registering && <LeadRegistration accessToken={accessToken} onUnauthorized={onUnauthorized}
+      onCreate={api.createLead} onClose={() => setRegistering(false)} onCreated={() => {
+        setRegistering(false);
+        setNotice('Interesado registrado.');
+        setCampaign(null);
+        setSearch('');
+        refresh();
+      }} />}
   </Stack>;
 }

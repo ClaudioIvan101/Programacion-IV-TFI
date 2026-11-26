@@ -1,7 +1,7 @@
 /* Variables compartidas por los paneles de todas las pantallas. */
 :root {
-  --dashboard-panel: #24252a;
-  --dashboard-border: #393b40;
+  --dashboard-panel: #0f0f12;
+  --dashboard-border: #27272b;
 }
 
 .dashboard-shell {
@@ -26,12 +26,12 @@
 }
 
 .dashboard-counts {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .dashboard-grid {
   align-items: start;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-columns: minmax(12.5rem, 0.32fr) minmax(0, 1fr);
   margin-block-start: 1rem;
 }
 
@@ -66,20 +66,137 @@
   max-inline-size: 88%;
   padding: 0.55rem 0.75rem;
   border-radius: var(--mantine-radius-sm);
-  background: #373a40;
+  background: #18181c;
   white-space: pre-wrap;
 }
 
 .dashboard-message-lead {
   align-self: flex-end;
-  background: #3b3420;
+  background: #242429;
 }
 
+.dashboard-count { border-block-start: 2px solid #383840; }
+.dashboard-count-value { font-family: var(--mantine-font-family-monospace); letter-spacing: -0.07em; }
+.chat-thread-columns { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; gap: 1rem; }
+@media (max-width: 1100px) { .chat-thread-columns { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 750px) {
   .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 410px) {
   .dashboard-counts { gap: 0.5rem; }
   .dashboard-count { padding: 0.65rem; }
 }
+.dashboard-inbox {
+  background: #101012;
+  border-color: #262629;
+  border-radius: 16px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.dashboard-inbox-head {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #232326;
+}
+
+.dashboard-inbox-head h2, .dashboard-distribution h2 {
+  color: #f4f4f5;
+  font-size: 0.9rem;
+  letter-spacing: -0.015em;
+}
+
+.dashboard-inbox-head > p, .dashboard-distribution > p { margin-block-start: 2px; }
+.dashboard-inbox-controls { margin-block-start: 0.8rem; }
+.dashboard-inbox-controls > :nth-child(1) { width: min(225px, 100%); }
+.dashboard-inbox-controls > :nth-child(2) { width: min(205px, 100%); }
+.dashboard-inbox-controls input { background: #151518; border-color: #26262b; border-radius: 8px; }
+
+.dashboard-inbox-table {
+  --table-border-color: #232326;
+  --table-highlight-on-hover-color: #171719;
+}
+.dashboard-inbox-table th, .dashboard-inbox-table td { padding-inline: 1.05rem; }
+.dashboard-inbox .dashboard-inbox-table th {
+  background: #121214;
+  color: #8b8b95;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.67rem;
+  white-space: nowrap;
+}
+.dashboard-inbox-table th:last-child { text-align: right; }
+.dashboard-inbox .dashboard-inbox-table td { font-size: 0.8rem; }
+.dashboard-inbox-table td p { line-height: 1.45; }
+.dashboard-inbox-table td p[style] { overflow-wrap: anywhere; }
+.dashboard-inbox-actions a, .dashboard-inbox-actions button {
+  border-radius: 8px;
+  min-height: 1.9rem;
+  background: #151518;
+  border-color: #27272b;
+  padding-inline: 0.6rem;
+}
+.dashboard-inbox-actions a:hover { background: #1c1c22; }
+
+.dashboard-inbox-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  color: #a1a1aa;
+}
+.dashboard-inbox-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.dashboard-inbox-status[data-color='green'] { color: #4ade80; }
+.dashboard-inbox-status[data-color='yellow'] { color: #d6b884; }
+.dashboard-inbox-status[data-color='red'] { color: #f87171; }
+.dashboard-score {
+  display: grid;
+  grid-template-columns: minmax(3rem, 4.8rem) max-content;
+  gap: 0.7rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.dashboard-score strong, .dashboard-distribution-label strong {
+  font-family: var(--mantine-font-family-monospace);
+  color: #f4f4f5;
+  font-weight: 500;
+  font-size: 0.76rem;
+}
+.dashboard-score .dashboard-distribution-track span[data-decision='qualified'] { background: #4ade80; }
+.dashboard-distribution {
+  background: #101012;
+  border-color: #262629;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+.dashboard-distribution-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 0.85rem 1.5rem;
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  max-height: 13rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.dashboard-distribution-list li { min-width: 0; }
+.dashboard-distribution-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.78rem;
+  color: #a1a1aa;
+  margin-block-end: 0.3rem;
+}
+.dashboard-distribution-track { height: 5px; border-radius: 99px; background: #232326; overflow: hidden; }
+.dashboard-distribution-track > span { display: block; height: 100%; border-radius: inherit; background: #e4e4e7; }

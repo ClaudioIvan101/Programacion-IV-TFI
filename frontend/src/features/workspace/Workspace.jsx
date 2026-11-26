@@ -53,10 +53,12 @@ export function Workspace({ session, onLogout, onUnauthorized }) {
         </div>
       </aside>
       <main className="workspace-main" aria-label={title}>
-        <header className="workspace-topbar"><Text size="sm" c="dimmed">Calificación inmobiliaria</Text><Text size="sm" fw={600}>{title}</Text></header>
+        <header className="workspace-topbar">
+          <p className="workspace-breadcrumb"><span>Espacio de trabajo</span><span aria-hidden="true">/</span><strong>{title}</strong></p>
+          <ApiRouteGuide key={route} routes={screenApiRoutes[route]} />
+        </header>
         <div className="workspace-content">
           <Screen key={route + ':' + (leadId ?? '')} initialLeadId={leadId} accessToken={session.accessToken} onUnauthorized={onUnauthorized} />
-          <ApiRouteGuide key={route} routes={screenApiRoutes[route]} />
         </div>
       </main>
     </div>
