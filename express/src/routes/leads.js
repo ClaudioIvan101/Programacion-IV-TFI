@@ -133,17 +133,15 @@ export function createLeadRouter(leads) {
     return message ? res.json(message) : res.status(404).json({ error: 'Mensaje no encontrado.' });
   }));
 
-  // Un turno toma el mensaje del lead, llama al gateway de IA, persiste ambos
-  // mensajes con el contexto actualizado y devuelve la próxima pregunta.
-  // La respuesta contiene contexto del lead; esta operación queda restringida a administración.
+  // Ambas rutas requieren un administrador activo y autenticado.
   const protectTurn = requireUserRole(leads.authenticate ?? (async () => null), 'administrador');
+  // Consulta los datos acumulados de la conversación.
   router.get('/conversations/:conversationId/context', protectTurn, validate(async (req, res) => {
     const result = await leads.getConversationContext(req.params.conversationId);
     return result ? res.json(result) : res.status(404).json({ error: 'Conversación no encontrada.' });
   }));
+  // Pasa el mensaje al caso de uso y devuelve el resultado del turno.
   router.post('/conversations/:conversationId/turn', protectTurn, validate(async (req, res, body) => {
-    // Igual que el login: si el gateway no está configurado, la operación no
-    // existe para el cliente y responde 503 sin tocar la conversación.
     if (!leads.runConversationTurn) {
       return res.status(503).json({ error: 'Asistente no disponible.' });
     }
