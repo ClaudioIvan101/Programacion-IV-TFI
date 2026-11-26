@@ -96,7 +96,7 @@ async function verify() {
       cwd: pythonDir, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'],
       env: {
         ...childEnv, DJANGO_SETTINGS_MODULE: 'backend.settings', HOST: '127.0.0.1', PORT: '0',
-        AI_GATEWAY_ENV: 'production', AI_GATEWAY_SERVICE_JWT_PUBLIC_KEY_FILE: publicFile,
+        AI_GATEWAY_ENV: 'production', AI_GATEWAY_PROVIDER: 'fake', AI_GATEWAY_SERVICE_JWT_PUBLIC_KEY_FILE: publicFile,
       },
     });
     closed = new Promise((resolve) => child.once('close', resolve));
