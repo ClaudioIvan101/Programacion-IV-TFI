@@ -49,15 +49,16 @@ export function CampaignsScreen({ accessToken, onUnauthorized }) {
         {result?.data && (
           <Stack>
             {result.data.items.length ? (
-              <Table.ScrollContainer minWidth={460}>
+              <Table.ScrollContainer minWidth={550}>
                 <Table verticalSpacing="sm" highlightOnHover>
-                  <Table.Thead><Table.Tr><Table.Th>Campaña</Table.Th><Table.Th>Objetivo</Table.Th><Table.Th>Estado</Table.Th></Table.Tr></Table.Thead>
+                  <Table.Thead><Table.Tr><Table.Th>Campaña</Table.Th><Table.Th>Objetivo</Table.Th><Table.Th>Estado</Table.Th><Table.Th>Fecha de alta</Table.Th></Table.Tr></Table.Thead>
                   <Table.Tbody>
                     {result.data.items.map((campaign) => (
                       <Table.Tr key={campaign.id}>
                         <Table.Td fw={600}>{campaign.name}</Table.Td>
                         <Table.Td>{campaign.objective}</Table.Td>
                         <Table.Td><Badge variant="light" color={campaign.status === 'active' ? 'green' : 'gray'}>{statuses[campaign.status] ?? campaign.status}</Badge></Table.Td>
+                        <Table.Td>{campaign.createdAt ? new Date(campaign.createdAt).toLocaleDateString('es-AR') : '—'}</Table.Td>
                       </Table.Tr>
                     ))}
                   </Table.Tbody>

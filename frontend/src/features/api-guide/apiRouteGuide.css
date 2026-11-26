@@ -1,51 +1,10 @@
-.api-route-guide {
-  margin-block-start: 1rem;
-}
-
-.api-route-guide summary {
-  width: fit-content;
-  color: var(--mantine-color-dark-2);
-  cursor: pointer;
-  font-size: var(--mantine-font-size-xs);
-  padding-block: 0.375rem;
-}
-
-.api-route-guide summary:hover,
-.api-route-guide[open] summary {
-  color: var(--mantine-color-text);
-}
-
-.api-route-guide summary:focus-visible {
-  outline: 2px solid var(--mantine-color-yellow-4);
-  outline-offset: 3px;
-}
-
-.api-route-guide-content {
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--mantine-color-dark-4);
-  border-radius: var(--mantine-radius-sm);
-  overflow-wrap: anywhere;
-}
-
-.api-route-guide ul {
-  padding: 0;
-  margin: 0.5rem 0 0;
-  list-style: none;
-}
-
-.api-route-guide li {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
-  gap: 0.25rem 1rem;
-  padding-block: 0.5rem;
-  border-block-start: 1px solid var(--mantine-color-dark-4);
-}
-
-.api-route-guide li:last-child {
-  padding-block-end: 0;
-}
-
-.api-route-guide-request {
-  color: var(--mantine-color-yellow-4);
-  font-size: var(--mantine-font-size-xs);
-}
+.api-route-guide-trigger span { margin-inline-end: 0.45em; color: var(--mantine-color-dimmed); }
+.api-route-guide-content { overflow-wrap: anywhere; }
+.api-route-guide-content ul { padding: 0; margin: 1rem 0 0; list-style: none; display: grid; gap: 0.5rem; }
+.api-route-guide-content li { display: grid; gap: 0.4rem; padding: 0.8rem; border: 1px solid #27272b; border-radius: 8px; background: #141418; }
+.api-route-guide-request { margin: 0; display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.875rem; }
+.api-route-guide-request strong { color: #a7d7af; font-family: var(--mantine-font-family-monospace); font-size: 0.71rem; }
+.api-route-guide-request strong[data-method='POST'] { color: #d6b884; }
+.api-route-guide-request strong[data-method='PATCH'] { color: #cad0ee; }
+.api-route-guide-content dl { display: grid; grid-template-columns: min-content minmax(0, 1fr); gap: 0.15rem 0.55rem; margin: 0; font-size: 0.75rem; color: #a1a1aa; }
+.api-route-guide-content dd { margin: 0; }

@@ -122,42 +122,46 @@ function MessageThread({ api, conversationId }) {
 
   const suggested = conversationSuggestions(context);
   return (
-    <Stack gap="sm">
-      <Group justify="space-between">
-        <Text fw={600}>Historial</Text>
-        <Button size="compact-sm" variant="subtle" disabled={isSending} onClick={refresh}>Actualizar historial</Button>
-      </Group>
-      <div className="dashboard-history" role="log" aria-label="Historial de conversación">
-        {!messages && !error && <Loader size="sm" aria-label="Cargando historial" />}
-        {messages?.length === 0 && <Text c="dimmed" size="sm">Todavía no hay mensajes.</Text>}
-        {messages?.map((message) => (
-          <div key={message.id} className={'dashboard-message' + (message.role === 'lead' ? ' dashboard-message-lead' : '')}>
-            <Text size="xs" fw={700}>{message.role === 'lead' ? 'Interesado' : 'Asistente'}</Text>
-            <Text size="sm">{message.content}</Text>
-            {message.turnResult && <TurnJson turn={message.turnResult} />}
-          </div>
-        ))}
-      </div>
-      <Paper p="sm" withBorder>
-        <Text size="sm" fw={700}>Contexto del asistente</Text>
-        <Text size="xs" c="dimmed">Datos del interesado que el asistente usa para continuar. No cambian el puntaje por sí solos.</Text>
-        {contextError ? <Text size="xs" c="dimmed">{contextError}</Text> :
-          Object.keys(suggested).length === 0 ? <Text size="sm" mt={4}>Todavía no hay datos para revisar.</Text> :
-          <Stack gap={4} mt="xs">
-            {suggested.needs && <Text size="sm">Necesidad: {suggested.needs}</Text>}
-            {suggested.urgency && <Text size="sm">Urgencia: {suggested.urgency}</Text>}
-            {suggested.budgetAmount != null && <Text size="sm">Presupuesto: {suggested.budgetAmount} {suggested.budgetCurrency ?? '(moneda sin confirmar)'}</Text>}
-          </Stack>}
-      </Paper>
-      {error && <Alert role="alert" color="red">{error}</Alert>}
-      <form onSubmit={submit}>
-        <Stack gap="xs">
-          <Textarea label="Mensaje del interesado" value={draft} maxLength={4000}
-            disabled={isSending} onChange={(event) => setDraft(event.currentTarget.value)} />
-          <Button type="submit" loading={isSending} disabled={!draft.trim() || !messages || conflict}>Enviar al asistente</Button>
-        </Stack>
-      </form>
-      {lastTurn && <TurnResult turn={lastTurn} />}
-    </Stack>
+    <div className="chat-thread-columns">
+      <Stack gap="sm">
+        <Group justify="space-between">
+          <Text fw={600}>Historial</Text>
+          <Button size="compact-sm" variant="subtle" disabled={isSending} onClick={refresh}>Actualizar historial</Button>
+        </Group>
+        <div className="dashboard-history" role="log" aria-label="Historial de conversación">
+          {!messages && !error && <Loader size="sm" aria-label="Cargando historial" />}
+          {messages?.length === 0 && <Text c="dimmed" size="sm">Todavía no hay mensajes.</Text>}
+          {messages?.map((message) => (
+            <div key={message.id} className={'dashboard-message' + (message.role === 'lead' ? ' dashboard-message-lead' : '')}>
+              <Text size="xs" fw={700}>{message.role === 'lead' ? 'Interesado' : 'Asistente'}</Text>
+              <Text size="sm">{message.content}</Text>
+              {message.turnResult && <TurnJson turn={message.turnResult} />}
+            </div>
+          ))}
+        </div>
+        {error && <Alert role="alert" color="red">{error}</Alert>}
+        <form onSubmit={submit}>
+          <Stack gap="xs">
+            <Textarea label="Mensaje del interesado" value={draft} maxLength={4000}
+              disabled={isSending} onChange={(event) => setDraft(event.currentTarget.value)} />
+            <Button type="submit" loading={isSending} disabled={!draft.trim() || !messages || conflict}>Enviar al asistente</Button>
+          </Stack>
+        </form>
+      </Stack>
+      <Stack gap="sm">
+        <Paper p="sm" withBorder>
+          <Text size="sm" fw={700}>Contexto del asistente</Text>
+          <Text size="xs" c="dimmed">Datos del interesado que el asistente usa para continuar. No cambian el puntaje por sí solos.</Text>
+          {contextError ? <Text size="xs" c="dimmed">{contextError}</Text> :
+            Object.keys(suggested).length === 0 ? <Text size="sm" mt={4}>Todavía no hay datos para revisar.</Text> :
+            <Stack gap={4} mt="xs">
+              {suggested.needs && <Text size="sm">Necesidad: {suggested.needs}</Text>}
+              {suggested.urgency && <Text size="sm">Urgencia: {suggested.urgency}</Text>}
+              {suggested.budgetAmount != null && <Text size="sm">Presupuesto: {suggested.budgetAmount} {suggested.budgetCurrency ?? '(moneda sin confirmar)'}</Text>}
+            </Stack>}
+        </Paper>
+        {lastTurn && <TurnResult turn={lastTurn} />}
+      </Stack>
+    </div>
   );
 }

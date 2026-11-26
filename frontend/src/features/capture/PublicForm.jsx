@@ -1,6 +1,8 @@
 import { Alert, Button, Loader, Paper, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { useEffect, useMemo, useState } from 'react';
 import { publicCapture } from './publicCapture.js';
+import { ApiRouteGuide } from '../api-guide/ApiRouteGuide.jsx';
+import { screenApiRoutes } from '../api-guide/screenApiRoutes.js';
 import '../auth/auth.css';
 
 export function PublicForm({ formId }) {
@@ -62,6 +64,7 @@ export function PublicForm({ formId }) {
           </Stack>
         </form>}
       </Stack>
+      <ApiRouteGuide routes={screenApiRoutes.formulario} />
     </Paper>
   </main>;
 }
