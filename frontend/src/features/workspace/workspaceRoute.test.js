@@ -14,6 +14,9 @@ test('preserves lead selection between operator screens without routing public f
   const chat = leadRoute('chat', id);
   assert.equal(workspaceRoute(chat), 'chat');
   assert.equal(routeLeadId(chat), id);
+  const rules = leadRoute('reglas', id);
+  assert.equal(workspaceRoute(rules), 'reglas');
+  assert.equal(routeLeadId(rules), id);
   assert.equal(routeLeadId('#/chat?lead=invalid'), null);
   assert.equal(publicFormId('#/formulario/' + id), id);
   assert.equal(publicFormId('#/formulario/invalid'), null);

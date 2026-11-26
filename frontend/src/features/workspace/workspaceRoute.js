@@ -3,7 +3,8 @@ export const workspaceRoutes = [
   ['chat', 'Chat', '◫'],
   ['campanas', 'Campañas', '◎'],
   ['captacion', 'Captación', '◇'],
-  ['calificacion', 'Calificación', '✓'],
+  ['calificacion', 'Calificar interesado', '✓'],
+  ['reglas', 'Reglas de puntaje', '≡'],
   ['derivacion', 'Derivación', '↗'],
   ['usuarios', 'Usuarios', '◉'],
 ];

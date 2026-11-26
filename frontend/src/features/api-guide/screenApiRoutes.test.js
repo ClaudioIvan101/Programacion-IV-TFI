@@ -16,3 +16,14 @@ test('the route guide identifies the real client caller on each screen', () => {
   ]);
   assert.ok(!screenApiRoutes.captacion.some(([route]) => route.includes('/public/')));
 });
+
+test('shows rule publication and applying a score on separate screens', () => {
+  assert.deepEqual(screenApiRoutes.reglas.map(([route]) => route), [
+    'GET /api/lead-scoring-rule-sets',
+    'POST /api/lead-scoring-rule-sets',
+    'POST /api/lead-scoring-rule-sets/:version/activate',
+  ]);
+  assert.ok(!screenApiRoutes.calificacion.some(([route]) => route === 'POST /api/lead-scoring-rule-sets'));
+  assert.ok(screenApiRoutes.calificacion.some(([route]) => route === 'GET /api/lead-scoring-rule-sets'));
+  assert.ok(screenApiRoutes.calificacion.some(([route]) => route === 'POST /api/leads/:leadId/qualifications'));
+});

@@ -1,9 +1,14 @@
-export function qualificationData({ needs, urgency, budgetAmount, budgetCurrency }) {
+export function qualificationData({
+  needs = '', urgency = '', zone = '', financing = '', customChecks, budgetAmount, budgetCurrency,
+}) {
   const hasAmount = budgetAmount !== '' && budgetAmount != null;
   if (!hasAmount && budgetCurrency) throw new Error('Ingrese el monto para indicar una moneda.');
   return {
-    ...(needs.trim() && { needs: needs.trim() }),
-    ...(urgency.trim() && { urgency: urgency.trim() }),
+    ...(needs?.trim() && { needs: needs.trim() }),
+    ...(urgency?.trim() && { urgency: urgency.trim() }),
+    ...(zone?.trim() && { zone: zone.trim() }),
+    ...(financing?.trim() && { financing: financing.trim() }),
+    ...(customChecks && Object.keys(customChecks).length > 0 && { customChecks }),
     ...(hasAmount && { budgetAmount: Number(budgetAmount) }),
     ...(budgetCurrency && { budgetCurrency }),
   };
@@ -11,9 +16,15 @@ export function qualificationData({ needs, urgency, budgetAmount, budgetCurrency
 
 export function hasUnconfirmedFacts(draft, saved) {
   const clean = (value) => String(value ?? '').trim();
-  const amount = (value) => clean(value) === '' ? null : Number(value);
-  return ['needs', 'urgency', 'budgetCurrency'].some((key) => clean(draft[key]) !== clean(saved[key])) ||
-    amount(draft.budgetAmount) !== amount(saved.budgetAmount);
+  const amount = (value) => (clean(value) === '' ? null : Number(value));
+  if (['needs', 'urgency', 'zone', 'financing', 'budgetCurrency'].some((key) => clean(draft[key]) !== clean(saved[key]))) {
+    return true;
+  }
+  if (amount(draft.budgetAmount) !== amount(saved.budgetAmount)) return true;
+  const draftChecks = draft.customChecks ?? {};
+  const savedChecks = saved.customChecks ?? {};
+  const checkKeys = new Set([...Object.keys(draftChecks), ...Object.keys(savedChecks)]);
+  return [...checkKeys].some((key) => Boolean(draftChecks[key]) !== Boolean(savedChecks[key]));
 }
 
 export function ruleSetData(threshold, pointsByType, currency, minimumAmount) {
@@ -65,14 +76,19 @@ export function qualificationApi(token, onUnauthorized, fetcher = fetch) {
   const leadPath = (id) => '/leads/' + encodeURIComponent(id);
   return {
     leads: (signal) => request('/leads', { signal }),
+    ruleSets: (signal) => request('/lead-scoring-rule-sets', { signal }),
     conversations: (id, signal) => request(leadPath(id) + '/conversations', { signal }),
+    messages: (id, signal) => request('/conversations/' + encodeURIComponent(id) + '/messages', { signal }),
     conversationContext: (id, signal) => request('/conversations/' + encodeURIComponent(id) + '/context', { signal }),
     history: (id, signal) => request(leadPath(id) + '/qualifications', { signal }),
     saveFacts: (id, conversation, data) => request(
-      leadPath(id) + '/conversations/' + encodeURIComponent(conversation) + '/qualification-data',
+      conversation
+        ? leadPath(id) + '/conversations/' + encodeURIComponent(conversation) + '/qualification-data'
+        : leadPath(id) + '/qualification-data',
       { method: 'PATCH', body: data },
     ),
     publish: (body) => request('/lead-scoring-rule-sets', { method: 'POST', body }),
+    activateRuleSet: (version) => request('/lead-scoring-rule-sets/' + encodeURIComponent(version) + '/activate', { method: 'POST' }),
     qualify: (id, ruleSetVersion) => request(leadPath(id) + '/qualifications', {
       method: 'POST', body: { ruleSetVersion },
     }),

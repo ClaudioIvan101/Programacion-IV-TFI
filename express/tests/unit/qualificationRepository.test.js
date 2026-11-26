@@ -23,9 +23,9 @@ test('conserva el NUMERIC original al editar otros datos y permite escribir cero
 
   await apply({ ...origin, data: { urgency: 'Durante el mes' } });
   // El valor leído como Number ya perdió precisión: se conserva la columna NUMERIC, no ese valor.
-  assert.match(updates[0].sql, /budget_amount = COALESCE\(\$4, l\.budget_amount\)/);
-  assert.deepEqual(updates[0].values, ['lead', 'Casa', 'Durante el mes', null, 'USD']);
+  assert.match(updates[0].sql, /budget_amount = COALESCE\(\$7, l\.budget_amount\)/);
+  assert.deepEqual(updates[0].values, ['lead', 'Casa', 'Durante el mes', null, null, '{}', null, 'USD']);
 
   await apply({ ...origin, data: { budgetAmount: 0 } });
-  assert.deepEqual(updates[1].values, ['lead', 'Casa', null, 0, null]);
+  assert.deepEqual(updates[1].values, ['lead', 'Casa', null, null, null, '{}', 0, null]);
 });

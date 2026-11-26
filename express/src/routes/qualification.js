@@ -10,12 +10,15 @@ const text = (max) => z.string().trim().min(1).max(max)
 const qualificationData = z.strictObject({
   needs: text(2000).nullish(),
   urgency: text(300).nullish(),
+  zone: text(120).nullish(),
+  financing: text(120).nullish(),
+  customChecks: z.record(z.string().min(1).max(80), z.boolean()).nullish(),
   budgetAmount: z.number().min(0).max(1_000_000_000_000).nullish(),
   budgetCurrency: z.enum(['ARS', 'USD']).nullish(),
 });
 
 export function createQualificationRouter({
-  authenticate, applyQualificationData, publishRuleSet, qualifyLead, listQualifications,
+  authenticate, applyQualificationData, publishRuleSet, listRuleSets, activateRuleSet, qualifyLead, listQualifications,
 }) {
   const router = Router();
 
@@ -36,18 +39,24 @@ export function createQualificationRouter({
     return handle(req, res, body.data);
   };
 
-  router.patch('/leads/:leadId/conversations/:conversationId/qualification-data', protect,
-    validate(qualificationData, async (req, res, data) => {
-      try {
-        const result = await applyQualificationData({ ...req.params, data });
-        return result ? res.json(result) : res.status(404).json({ error: 'Lead o conversación no encontrados.' });
-      } catch (error) {
-        if (error instanceof InvalidQualificationDataError) return res.status(400).json({ error: error.message });
-        throw error;
-      }
-    }));
+  async function saveFacts(req, res, data) {
+    try {
+      const result = await applyQualificationData({ ...req.params, data });
+      return result ? res.json(result) : res.status(404).json({ error: 'Lead o conversación no encontrados.' });
+    } catch (error) {
+      if (error instanceof InvalidQualificationDataError) return res.status(400).json({ error: error.message });
+      throw error;
+    }
+  }
+
+  router.patch('/leads/:leadId/conversations/:conversationId/qualification-data', protect, validate(qualificationData, saveFacts));
+  router.patch('/leads/:leadId/qualification-data', protect, validate(qualificationData, saveFacts));
 
   // Se publica una versión nueva para que el historial conserve las reglas que se usaron.
+  router.get('/lead-scoring-rule-sets', protect, validate(null, async (_req, res) => {
+    return res.json(await listRuleSets());
+  }));
+
   router.post('/lead-scoring-rule-sets', protect, validate(z.unknown(), async (req, res, body) => {
     try {
       const ruleSet = await publishRuleSet(body);
@@ -57,6 +66,18 @@ export function createQualificationRouter({
       throw error;
     }
   }));
+
+  router.post('/lead-scoring-rule-sets/:version/activate', protect, async (req, res) => {
+    if (Object.keys(req.query).length || !/^\d+$/.test(req.params.version)) {
+      return res.status(400).json({ error: 'Datos inválidos.' });
+    }
+    const version = Number(req.params.version);
+    if (!Number.isInteger(version) || version < 1 || version > 2_147_483_647) {
+      return res.status(400).json({ error: 'Datos inválidos.' });
+    }
+    const activated = await activateRuleSet?.(version);
+    return activated ? res.json(activated) : res.status(404).json({ error: 'Versión de reglas no encontrada.' });
+  });
 
   const qualificationRequest = z.strictObject({ ruleSetVersion: z.number().int().min(1).max(2_147_483_647) });
   router.post('/leads/:leadId/qualifications', protect, validate(qualificationRequest, async (req, res, body) => {

@@ -1,6 +1,7 @@
 import { Alert, Badge, Button, Group, Paper, Select, Stack, Table, Text, Title } from '@mantine/core';
 import { useEffect, useMemo, useState } from 'react';
 import { leadLabel } from '../dashboard/dashboardApi.js';
+import { leadRoute } from '../workspace/workspaceRoute.js';
 import { assignmentApi, formatResponseTime, notificationLabels } from './assignmentApi.js';
 
 const date = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' });
@@ -58,6 +59,11 @@ export function AssignmentsScreen({ accessToken, onUnauthorized, initialLeadId }
   const selected = options?.leads.some((lead) => lead.id === leadId) ? leadId : null;
   const assignments = queue?.assignments ?? [];
   const recordedCount = assignments.filter((row) => row.firstContactAt !== null).length;
+  const requestedAssignment = assignments.find((row) => row.leadId === initialLeadId);
+  const noEligibleLeads = options?.leads.length === 0;
+  const noActiveSellers = options?.sellers.length === 0;
+  const requestedLeadUnavailable = Boolean(options && initialLeadId && !requestedAssignment &&
+    !options.leads.some((lead) => lead.id === initialLeadId));
 
   return <Stack component="section" aria-labelledby="assignment-title" gap="lg">
     <Group justify="space-between" align="end">
@@ -81,13 +87,31 @@ export function AssignmentsScreen({ accessToken, onUnauthorized, initialLeadId }
       <Stack gap="sm">
         <Title order={2} size="h4">Nueva asignación</Title>
         <Text c="dimmed" size="sm">Solo aparecen interesados calificados sin asignar y vendedores activos.</Text>
+        {requestedAssignment && <Alert variant="light" title="El interesado ya tiene una asignación">
+          Está asignado a {requestedAssignment.sellerName}. Consulte el seguimiento en las derivaciones registradas.
+        </Alert>}
+        {(noEligibleLeads || requestedLeadUnavailable) && <Alert variant="light"
+          title={noEligibleLeads ? 'No hay interesados disponibles para asignar' : 'El interesado seleccionado no está disponible'}>
+          <Stack gap="xs">
+            <Text size="sm">El interesado debe alcanzar el puntaje mínimo de una regla y no tener una asignación previa.</Text>
+            <Group>
+              <Button component="a" variant="light" size="compact-sm"
+                href={requestedLeadUnavailable ? leadRoute('calificacion', initialLeadId) : '#/calificacion'}>
+                Ir a calificación
+              </Button>
+            </Group>
+          </Stack>
+        </Alert>}
+        {noActiveSellers && <Alert variant="light" title="No hay vendedores activos">
+          Cree una cuenta activa con rol vendedor en Usuarios para continuar.
+        </Alert>}
         <Group align="end" grow>
-          <Select label="Interesado" searchable placeholder="Seleccione un interesado" value={selected} onChange={setLeadId}
+          <Select label="Interesado" searchable placeholder={noEligibleLeads ? 'Sin interesados disponibles' : 'Seleccione un interesado'} value={selected} onChange={setLeadId}
             data={options?.leads.map((lead) => ({ value: lead.id, label: leadLabel(lead) + ' · ' + lead.score + ' puntos' })) ?? []}
-            nothingFoundMessage="No hay interesados elegibles" disabled={!options || Boolean(busy)} />
-          <Select label="Vendedor" searchable placeholder="Seleccione un vendedor activo" value={sellerId} onChange={setSellerId}
+            nothingFoundMessage="No hay interesados elegibles" disabled={!options || noEligibleLeads || Boolean(busy)} />
+          <Select label="Vendedor" searchable placeholder={noActiveSellers ? 'Sin vendedores activos' : 'Seleccione un vendedor activo'} value={sellerId} onChange={setSellerId}
             data={options?.sellers.map((seller) => ({ value: seller.id, label: seller.name })) ?? []}
-            nothingFoundMessage="No hay vendedores activos" disabled={!options || Boolean(busy)} />
+            nothingFoundMessage="No hay vendedores activos" disabled={!options || noActiveSellers || Boolean(busy)} />
         </Group>
         <Group justify="flex-end">
           <Button type="submit" loading={busy === 'assign'} disabled={!selected || !sellerId || Boolean(busy)}>

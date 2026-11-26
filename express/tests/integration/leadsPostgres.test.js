@@ -27,7 +27,13 @@ test('API de leads, conversaciones y mensajes con PostgreSQL', { timeout: 15_000
   client = await pool.connect();
   await client.query(`CREATE SCHEMA ${schema}`);
   await client.query(`SET search_path TO ${schema}`);
-  for (const file of ['001_create_campaigns.sql', '004_create_capture_sources.sql', '005_create_leads_conversations_messages.sql']) {
+  for (const file of [
+    '001_create_campaigns.sql',
+    '004_create_capture_sources.sql',
+    '005_create_leads_conversations_messages.sql',
+    '006_create_lead_qualifications.sql',
+    '010_expand_scoring_and_lead_fields.sql',
+  ]) {
     await client.query(await readFile(new URL(`../../database/migrations/${file}`, import.meta.url), 'utf8'));
   }
 
@@ -102,11 +108,13 @@ test('API de leads, conversaciones y mensajes con PostgreSQL', { timeout: 15_000
     lead = await request('/leads', 201, {
       name: ` ${name} `, email: 'ana@example.com', phone: '1234',
       campaignId: campaign.id.toUpperCase(), channel: 'form', formId: form.id,
-      needs: 'Casa', budgetAmount: 100000.50, budgetCurrency: 'USD', urgency: 'Este mes',
+      needs: 'Casa', zone: 'Palermo', financing: 'Contado / Propios',
+      budgetAmount: 100000.50, budgetCurrency: 'USD', urgency: 'Este mes',
     });
     assert.deepEqual(lead, {
       id: lead.id, name, email: 'ana@example.com', phone: '1234',
       campaignId: campaign.id, channel: 'form', formId: form.id, needs: 'Casa',
+      zone: 'Palermo', financing: 'Contado / Propios', customChecks: {},
       budgetAmount: 100000.50, budgetCurrency: 'USD', urgency: 'Este mes', status: 'nuevo', createdAt: lead.createdAt,
     });
     assert.deepEqual(await request(`/leads/${lead.id}`, 200), lead);

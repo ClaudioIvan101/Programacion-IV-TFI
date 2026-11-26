@@ -25,7 +25,13 @@ test('PostgreSQL: FK, formularios y unicidad concurrente de canales', {
     // Las dos conexiones ejecutan las consultas en el mismo esquema de prueba.
     await Promise.all([first.query(`SET search_path TO "${schema}"`), second.query(`SET search_path TO "${schema}"`)]);
     // Se aplican únicamente las migraciones que crean las tablas necesarias para este escenario.
-    for (const file of ['001_create_campaigns.sql', '004_create_capture_sources.sql', '005_create_leads_conversations_messages.sql']) {
+    for (const file of [
+      '001_create_campaigns.sql',
+      '004_create_capture_sources.sql',
+      '005_create_leads_conversations_messages.sql',
+      '006_create_lead_qualifications.sql',
+      '010_expand_scoring_and_lead_fields.sql',
+    ]) {
       await first.query(await readFile(new URL(`../../database/migrations/${file}`, import.meta.url), 'utf8'));
     }
     const campaign = (await first.query("INSERT INTO campaigns (name, objective) VALUES ('Test', 'Test') RETURNING id")).rows[0];

@@ -1,7 +1,8 @@
 import { LeadRegistrationConflictError } from '../domain/leads/createLead.js';
 
 const leadColumns = `id, name, email, phone, campaign_id AS "campaignId", channel,
-  form_id AS "formId", needs, budget_amount::double precision AS "budgetAmount",
+  form_id AS "formId", needs, zone, financing, custom_checks AS "customChecks",
+  budget_amount::double precision AS "budgetAmount",
   budget_currency AS "budgetCurrency", urgency, status, created_at AS "createdAt"`;
 const conversationColumns = 'c.id, c.lead_id AS "leadId", c.created_at AS "createdAt"';
 const messageColumns = 'm.id, m.conversation_id AS "conversationId", m.role, m.content, m.created_at AS "createdAt"';
@@ -25,17 +26,17 @@ export function createPostgresLeadRepository(db) {
       return rowCount === 1;
     },
     // 1. Guarda un lead con los datos recibidos y devuelve el registro creado.
-    async createLead({ name, email, phone, campaignId, channel, formId, needs, budgetAmount, budgetCurrency, urgency }, registrationId) {
+    async createLead({ name, email, phone, campaignId, channel, formId, needs, zone, financing, budgetAmount, budgetCurrency, urgency }, registrationId) {
       const fields = {
         name, email, phone, campaignId: campaignId?.toLowerCase(), channel, formId: formId?.toLowerCase(),
-        needs, budgetAmount, budgetCurrency, urgency,
+        needs, zone, financing, budgetAmount, budgetCurrency, urgency,
       };
       try {
         // Si se informan ambos IDs, comprobamos y bloqueamos el formulario durante el alta.
         // El INSERT conserva la campaña que envió el cliente, incluso cuando es null.
         const { rows: [created] } = await db.query({
-          text: `INSERT INTO leads (name, email, phone, campaign_id, channel, form_id, needs, budget_amount, budget_currency, urgency, id)
-           SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, COALESCE($11::uuid, gen_random_uuid())
+          text: `INSERT INTO leads (name, email, phone, campaign_id, channel, form_id, needs, zone, financing, budget_amount, budget_currency, urgency, id)
+           SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, COALESCE($13::uuid, gen_random_uuid())
            WHERE $4::uuid IS NULL OR $6::uuid IS NULL OR EXISTS (
              SELECT 1 FROM forms WHERE id = $6 AND campaign_id = $4 FOR SHARE
            )

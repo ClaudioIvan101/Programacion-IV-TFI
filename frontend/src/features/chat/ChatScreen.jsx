@@ -1,4 +1,4 @@
-import { Alert, Button, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Group, Paper, Stack, Text, TextInput, Title, VisuallyHidden } from '@mantine/core';
 import { useEffect, useMemo, useState } from 'react';
 import { dashboardApi, leadLabel } from '../dashboard/dashboardApi.js';
 import { ConversationPanel } from './ConversationPanel.jsx';
@@ -25,6 +25,7 @@ export function ChatScreen({ accessToken, onUnauthorized, initialLeadId }) {
   const [registering, setRegistering] = useState(false);
   const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const selected = leads?.find(({ id }) => id === selectedId);
 
   const query = search.trim().toLocaleLowerCase('es-AR');
@@ -43,6 +44,7 @@ export function ChatScreen({ accessToken, onUnauthorized, initialLeadId }) {
   function selectCreatedLead(lead) {
     setLeads((current) => [...(current ?? []).filter(({ id }) => id !== lead.id), lead]);
     setSelectedId(lead.id);
+    setPickerOpen(false);
     setError('');
     setNotice('Interesado registrado.');
     setRegistering(false);
@@ -50,17 +52,20 @@ export function ChatScreen({ accessToken, onUnauthorized, initialLeadId }) {
   }
 
   return (
-    <Stack gap="lg">
-      <Group justify="space-between" align="flex-end">
-        <div>
-          <Text className="auth-label" size="xs" fw={700}>SEGUIMIENTO DE CONSULTAS</Text>
-          <Title order={1}>Chat</Title>
-          <Text c="dimmed" size="sm" mt={4}>El asistente conversa y propone datos; Express valida la respuesta. Confirme los datos antes de aplicar las reglas de calificación.</Text>
-        </div>
-      </Group>
+    <Stack className="chat-page" gap="sm">
+      <VisuallyHidden component="h1">Chat</VisuallyHidden>
+      <Text size="xs" c="dimmed">
+        El asistente conversa y propone datos; Express valida la respuesta. Confirme los datos antes de aplicar las reglas de calificación.
+      </Text>
+      {selected && (
+        <Button className="chat-picker-toggle" variant="default" size="compact-sm"
+          aria-expanded={pickerOpen} aria-controls="chat-lead-panel" onClick={() => setPickerOpen((open) => !open)}>
+          {pickerOpen ? 'Volver al chat' : 'Cambiar interesado'}
+        </Button>
+      )}
       {notice && <Alert color="green" role="status">{notice}</Alert>}
-      <div className="chat-layout">
-        <Paper className="dashboard-panel chat-list-panel" withBorder component="section" aria-labelledby="chat-list-title">
+      <div className="chat-layout" data-selected={Boolean(selected)} data-picker-open={pickerOpen}>
+        <Paper id="chat-lead-panel" className="dashboard-panel chat-list-panel" withBorder component="section" aria-labelledby="chat-list-title">
           <Group className="chat-list-heading" justify="space-between" align="center" wrap="nowrap">
             <Title id="chat-list-title" order={2} size="h4">Interesados</Title>
             <Button aria-label="Nuevo interesado" size="compact-sm" onClick={() => { setNotice(''); setRegistering(true); }}>+ Nuevo</Button>
@@ -71,7 +76,7 @@ export function ChatScreen({ accessToken, onUnauthorized, initialLeadId }) {
             {!leads && !error && <Text role="status" size="sm">Cargando interesados…</Text>}
             {leads?.length === 0 && <Text c="dimmed" size="sm">Todavía no hay interesados registrados.</Text>}
             {leads?.length > 0 && (
-              <Stack gap="xs">
+              <Stack className="chat-list-results" gap="xs">
                 <TextInput aria-label="Buscar interesado" placeholder="Buscar interesado" size="xs"
                   value={search} onChange={(event) => setSearch(event.currentTarget.value)} />
                 {visibleLeads.length === 0 && <Text c="dimmed" size="sm">No hay interesados que coincidan.</Text>}
@@ -79,7 +84,7 @@ export function ChatScreen({ accessToken, onUnauthorized, initialLeadId }) {
                   {visibleLeads.map((lead) => (
                     <li key={lead.id}>
                       <button type="button" className="chat-lead-row" aria-pressed={selected?.id === lead.id}
-                        onClick={() => setSelectedId(lead.id)}>
+                        onClick={() => { setSelectedId(lead.id); setPickerOpen(false); }}>
                         <span className="chat-lead-name">{leadLabel(lead)}</span>
                         <span className="chat-lead-meta">
                           <span>{channelLabels[lead.channel] ?? 'Sin canal'}</span>
@@ -97,7 +102,7 @@ export function ChatScreen({ accessToken, onUnauthorized, initialLeadId }) {
         </Paper>
         {selected
           ? <ConversationPanel key={selected.id} api={api} lead={selected} />
-          : <Paper className="dashboard-panel" withBorder><Text c="dimmed" size="sm">El historial aparecerá al seleccionar un interesado.</Text></Paper>}
+          : <Paper className="dashboard-panel chat-no-selection" withBorder><Text c="dimmed" size="sm">El historial aparecerá al seleccionar un interesado.</Text></Paper>}
       </div>
       {registering && (
         <LeadRegistration accessToken={accessToken} onUnauthorized={onUnauthorized}

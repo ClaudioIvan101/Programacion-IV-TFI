@@ -1,0 +1,40 @@
+.lead-registration-dialog {
+  --lead-modal-border: #2a2a2d;
+  background: #101012;
+  border: 1px solid #303034;
+  border-radius: 16px;
+  box-shadow: 0 28px 64px rgb(0 0 0 / 78%);
+}
+
+.lead-registration-header {
+  min-height: auto;
+  padding: 1rem 1.25rem;
+  background: #101012;
+  border-bottom: 1px solid var(--lead-modal-border);
+}
+
+.lead-registration-header h2 { font-size: 0.875rem; font-weight: 700; }
+.lead-registration-header button { height: 30px; padding-inline: 0.7rem; }
+
+.lead-registration-body { padding: 0; }
+.lead-registration-fields { padding: 1.2rem 1.25rem; }
+.lead-registration-fields label {
+  margin-block-end: 0.3rem;
+  color: #a1a1aa;
+  font-size: .8rem;
+  font-weight: 600;
+}
+.lead-registration-fields input,
+.lead-registration-fields textarea {
+  --input-bg: #151518;
+  --input-bd: #26262b;
+  --input-size: 38px;
+  --input-radius: 8px;
+  font-size: .825rem;
+}
+.lead-registration-fields textarea { min-height: 92px; }
+.lead-registration-footer {
+  padding: 0.875rem 1.25rem;
+  border-top: 1px solid var(--lead-modal-border);
+}
+.lead-registration-footer button { border-radius: 8px; font-size: .8rem; }

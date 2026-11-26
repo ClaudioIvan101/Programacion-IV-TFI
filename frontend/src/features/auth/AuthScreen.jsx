@@ -4,17 +4,18 @@ import { ApiRouteGuide } from '../api-guide/ApiRouteGuide.jsx';
 import { screenApiRoutes } from '../api-guide/screenApiRoutes.js';
 import { Workspace } from '../workspace/Workspace.jsx';
 import { LoginForm } from './LoginForm.jsx';
+import { createSessionStore } from './sessionStore.js';
 import './auth.css';
 
 export function AuthScreen({ paused = false }) {
-  const [{ session, notice }, setAuth] = useState({ session: null, notice: '' });
+  const [sessionStore] = useState(createSessionStore);
+  const [{ session, notice }, setAuth] = useState(() => ({ session: sessionStore.current, notice: '' }));
 
   const expireSession = useCallback(() => {
-    setAuth((current) => current.session !== session ? current : {
-      session: null,
-      notice: 'La sesión ya no es válida. Inicie sesión nuevamente.',
-    });
-  }, [session]);
+    if (sessionStore.clear(session)) {
+      setAuth({ session: null, notice: 'La sesión ya no es válida. Inicie sesión nuevamente.' });
+    }
+  }, [session, sessionStore]);
 
   useEffect(() => {
     if (!session) return undefined;
@@ -23,12 +24,16 @@ export function AuthScreen({ paused = false }) {
   }, [session, expireSession]);
 
   function handleLogin(nextSession) {
-    setAuth({ session: nextSession, notice: '' });
+    setAuth({ session: sessionStore.save(nextSession), notice: '' });
+  }
+
+  function handleLogout() {
+    if (sessionStore.clear(session)) setAuth({ session: null, notice: '' });
   }
 
   if (paused) return null;
   if (session) return (
-    <Workspace session={session} onLogout={() => setAuth({ session: null, notice: '' })} onUnauthorized={expireSession} />
+    <Workspace session={session} onLogout={handleLogout} onUnauthorized={expireSession} />
   );
 
   return (

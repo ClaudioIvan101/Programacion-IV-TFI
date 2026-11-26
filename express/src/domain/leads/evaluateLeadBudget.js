@@ -32,8 +32,15 @@ export function evaluateBudgetRule(lead, rule) {
     return { status: 'not_applicable', points: null };
   }
 
-  return {
-    status: 'evaluated',
-    points: budgetAmount >= rule.minimumAmount ? rule.points : 0,
-  };
+  if (budgetAmount >= rule.minimumAmount) {
+    return { status: 'evaluated', points: rule.points };
+  }
+
+  if (rule.partialEnabled && Number.isInteger(rule.partialPoints) && rule.minimumAmount > 0) {
+    if (budgetAmount >= rule.minimumAmount * 0.8) {
+      return { status: 'evaluated', points: rule.partialPoints };
+    }
+  }
+
+  return { status: 'evaluated', points: 0 };
 }

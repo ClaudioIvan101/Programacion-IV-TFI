@@ -27,12 +27,16 @@ export const screenApiRoutes = {
   campanas: [
     ['GET /api/campaigns', 'Lista las campañas al abrir o cambiar de página; envía page y limit=20.', 'campaigns', 'frontend/src/features/capture/captureApi.js · listCampaigns()'],
     ['POST /api/campaigns', 'Guarda una campaña nueva.', 'campaigns', 'frontend/src/features/capture/captureApi.js · createCampaign()'],
+    ['GET /api/campaigns/:id/channels', 'Consulta los canales habilitados de cada campaña.', 'capture', 'frontend/src/features/capture/captureApi.js · listChannels()'],
+    ['GET /api/leads', 'Cuenta los interesados recibidos por campaña y canal.', 'leads', 'frontend/src/features/dashboard/dashboardApi.js · listLeads()'],
+    ['GET /api/leads/:leadId/qualifications', 'Cuenta cuántos interesados calificaron por campaña.', 'qualification', 'frontend/src/features/dashboard/dashboardApi.js · listQualifications()'],
   ],
   captacion: [
     ['GET /api/campaigns', 'Carga las campañas disponibles para seleccionar.', 'campaigns', 'frontend/src/features/capture/captureApi.js · listCampaigns()'],
     ['GET /api/campaigns/:id/channels', 'Lista los canales de la campaña.', 'capture', 'frontend/src/features/capture/captureApi.js · listChannels()'],
     ['POST /api/campaigns/:id/channels', 'Agrega un canal a la campaña.', 'capture', 'frontend/src/features/capture/captureApi.js · addChannel()'],
     ['GET /api/forms', 'Lista formularios con campaña o sin ella.', 'capture', 'frontend/src/features/capture/captureApi.js · listAllForms()'],
+    ['GET /api/leads', 'Cuenta los envíos recibidos en cada formulario.', 'leads', 'frontend/src/features/dashboard/dashboardApi.js · listLeads()'],
     ['POST /api/forms', 'Crea un formulario con campaña opcional.', 'capture', 'frontend/src/features/capture/captureApi.js · createForm()'],
   ],
   formulario: [
@@ -41,12 +45,19 @@ export const screenApiRoutes = {
   ],
   calificacion: [
     ['GET /api/leads', 'Carga los interesados que se pueden calificar.', 'leads', 'frontend/src/features/qualification/qualificationApi.js · leads()'],
+    ['GET /api/lead-scoring-rule-sets', 'Lista las versiones de reglas de calificación publicadas.', 'qualification', 'frontend/src/features/qualification/qualificationApi.js · ruleSets()'],
     ['GET /api/leads/:leadId/conversations', 'Lista las conversaciones disponibles para registrar datos.', 'leads', 'frontend/src/features/qualification/qualificationApi.js · conversations()'],
+    ['GET /api/conversations/:conversationId/messages', 'Carga los últimos mensajes de la conversación seleccionada.', 'leads', 'frontend/src/features/qualification/qualificationApi.js · messages()'],
     ['GET /api/conversations/:conversationId/context', 'Carga los datos sugeridos para revisar antes de guardar.', 'leads', 'frontend/src/features/qualification/qualificationApi.js · conversationContext()'],
     ['GET /api/leads/:leadId/qualifications', 'Consulta el historial de calificaciones.', 'qualification', 'frontend/src/features/qualification/qualificationApi.js · history()'],
     ['PATCH /api/leads/:leadId/conversations/:conversationId/qualification-data', 'Guarda los datos comerciales a partir de la conversación.', 'qualification', 'frontend/src/features/qualification/qualificationApi.js · saveFacts()'],
-    ['POST /api/lead-scoring-rule-sets', 'Publica una nueva versión de las reglas de calificación.', 'qualification', 'frontend/src/features/qualification/qualificationApi.js · publish()'],
+    ['PATCH /api/leads/:leadId/qualification-data', 'Guarda zona, financiación, urgencia o presupuesto cuando el interesado aún no tiene conversación.', 'qualification', 'frontend/src/features/qualification/qualificationApi.js · saveFacts()'],
     ['POST /api/leads/:leadId/qualifications', 'Calcula y guarda la calificación con la versión indicada.', 'qualification', 'frontend/src/features/qualification/qualificationApi.js · qualify()'],
+  ],
+  reglas: [
+    ['GET /api/lead-scoring-rule-sets', 'Lista las versiones de reglas ya publicadas.', 'qualification', 'frontend/src/features/qualification/qualificationApi.js · ruleSets()'],
+    ['POST /api/lead-scoring-rule-sets', 'Publica una nueva versión de las reglas de calificación.', 'qualification', 'frontend/src/features/qualification/qualificationApi.js · publish()'],
+    ['POST /api/lead-scoring-rule-sets/:version/activate', 'Activa una versión existente de las reglas de calificación.', 'qualification', 'frontend/src/features/qualification/qualificationApi.js · activateRuleSet()'],
   ],
   derivacion: [
     ['GET /api/assignments', 'Lista las derivaciones visibles para el rol actual.', 'assignments', 'frontend/src/features/assignments/assignmentApi.js · list()'],

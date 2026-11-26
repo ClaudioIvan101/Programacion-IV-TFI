@@ -28,12 +28,16 @@ test('builds qualification data without silently losing a zero budget', () => {
 test('saves conversation facts and scores the lead with a version', async () => {
   const calls = [];
   const api = qualificationApi('test-token', () => {}, async (url, options) => {
-    calls.push([url, options.method, JSON.parse(options.body), options.headers.Authorization]);
+    calls.push([url, options.method, options.body ? JSON.parse(options.body) : null, options.headers.Authorization]);
     return new Response('{}');
   });
+  await api.ruleSets();
+  await api.messages('conversation');
   await api.saveFacts('lead', 'conversation', { needs: 'Rent' });
   await api.qualify('lead', 2);
   assert.deepEqual(calls, [
+    ['/api/lead-scoring-rule-sets', 'GET', null, 'Bearer test-token'],
+    ['/api/conversations/conversation/messages', 'GET', null, 'Bearer test-token'],
     ['/api/leads/lead/conversations/conversation/qualification-data', 'PATCH', { needs: 'Rent' }, 'Bearer test-token'],
     ['/api/leads/lead/qualifications', 'POST', { ruleSetVersion: 2 }, 'Bearer test-token'],
   ]);

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button, Text } from '@mantine/core';
 import { AssignmentsScreen } from '../assignments/AssignmentsScreen.jsx';
 import { ApiRouteGuide } from '../api-guide/ApiRouteGuide.jsx';
@@ -7,6 +8,7 @@ import { CaptureScreen } from '../capture/CaptureScreen.jsx';
 import { ChatScreen } from '../chat/ChatScreen.jsx';
 import { Dashboard } from '../dashboard/Dashboard.jsx';
 import { QualificationScreen } from '../qualification/QualificationScreen.jsx';
+import { ScoringRulesScreen } from '../qualification/ScoringRulesScreen.jsx';
 import { UsersScreen } from '../users/UsersScreen.jsx';
 import { routeLeadId, workspaceRoute, workspaceRoutes } from './workspaceRoute.js';
 import { useCurrentHash } from './useCurrentHash.js';
@@ -18,19 +20,27 @@ const screens = {
   campanas: CampaignsScreen,
   captacion: CaptureScreen,
   calificacion: QualificationScreen,
+  reglas: ScoringRulesScreen,
   derivacion: AssignmentsScreen,
   usuarios: UsersScreen,
 };
 
 export function Workspace({ session, onLogout, onUnauthorized }) {
   const hash = useCurrentHash();
+  const [publishedRules, setPublishedRules] = useState([]);
+  const onRulePublished = (rule) => setPublishedRules((current) => [
+    rule,
+    ...current
+      .filter((item) => item.version !== rule.version)
+      .map((item) => (rule.status === 'active' && item.status === 'active' ? { ...item, status: 'archived' } : item)),
+  ]);
   const route = workspaceRoute(hash);
   const leadId = routeLeadId(hash);
   const Screen = screens[route];
   const title = workspaceRoutes.find(([key]) => key === route)[1];
 
   return (
-    <div className="workspace-shell">
+    <div className="workspace-shell" data-route={route}>
       <aside className="workspace-sidebar" aria-label="Espacio de trabajo">
         <div className="workspace-brand">
           <span className="auth-mark" aria-hidden="true">
@@ -58,7 +68,8 @@ export function Workspace({ session, onLogout, onUnauthorized }) {
           <ApiRouteGuide key={route} routes={screenApiRoutes[route]} />
         </header>
         <div className="workspace-content">
-          <Screen key={route + ':' + (leadId ?? '')} initialLeadId={leadId} accessToken={session.accessToken} onUnauthorized={onUnauthorized} />
+          <Screen key={route + ':' + (leadId ?? '')} initialLeadId={leadId} accessToken={session.accessToken}
+            onUnauthorized={onUnauthorized} publishedRules={publishedRules} onRulePublished={onRulePublished} />
         </div>
       </main>
     </div>

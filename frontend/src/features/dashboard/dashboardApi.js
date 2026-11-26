@@ -80,7 +80,7 @@ export async function loadLeadOverview(api, signal) {
       }
     })));
   }
-  const complete = rows.every((lead) => ['qualified', 'pending', 'not_qualified'].includes(lead.decision));
+  const complete = rows.every((lead) => ['qualified', 'review', 'pending', 'not_qualified'].includes(lead.decision));
   return {
     leads: rows,
     counts: {

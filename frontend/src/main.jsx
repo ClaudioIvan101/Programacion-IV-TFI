@@ -10,7 +10,7 @@ import { theme } from './theme.js';
 function App() {
   const hash = useCurrentHash();
   const publicRoute = hash === '#/formulario' || hash.startsWith('#/formulario/');
-  // El formulario público pertenece a un flujo distinto; la sesión del operador queda en memoria.
+  // El formulario público no usa la sesión del operador.
   return <>
     <AuthScreen paused={publicRoute} />
     {publicRoute && <PublicForm key={hash} formId={publicFormId(hash)} />}

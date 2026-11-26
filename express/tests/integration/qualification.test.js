@@ -80,6 +80,8 @@ test('publicación e historial exigen JWT válido y rol actual de administrador'
       rules.set(version, config);
       return { version, ...config };
     },
+    listRuleSets: async () => [...rules.entries()].reverse().map(([version, config]) => ({ version, ...config })),
+    activateRuleSet: async (version) => (rules.has(version) ? { version, status: 'active', ...rules.get(version) } : null),
     recordQualification: async (id, version, evaluate) => {
       if (id !== leadId || !rules.has(version)) return null;
       const result = {
@@ -130,4 +132,21 @@ test('publicación e historial exigen JWT válido y rol actual de administrador'
   }
   const saved = await (await getHistory(admin)).json();
   assert.deepEqual(saved.map(({ ruleSetVersion, score }) => [ruleSetVersion, score]), [[2, 2], [1, 2]]);
+
+  assert.equal((await fetch(`${base}${publishPath}`)).status, 401);
+  role = 'supervisor';
+  assert.equal((await fetch(`${base}${publishPath}`, { headers: { Authorization: `Bearer ${admin}` } })).status, 403);
+  role = 'administrador';
+  assert.equal((await fetch(`${base}${publishPath}?page=1`, { headers: { Authorization: `Bearer ${admin}` } })).status, 400);
+  const listed = await fetch(`${base}${publishPath}`, { headers: { Authorization: `Bearer ${admin}` } });
+  assert.equal(listed.status, 200);
+  assert.deepEqual((await listed.json()).map(({ version, threshold }) => [version, threshold]), [[2, 3], [1, 2]]);
+  const activated = await fetch(`${base}${publishPath}/1/activate`, {
+    method: 'POST', headers: { Authorization: `Bearer ${admin}` },
+  });
+  assert.equal(activated.status, 200);
+  assert.equal((await activated.json()).status, 'active');
+  assert.equal((await fetch(`${base}${publishPath}/99/activate`, {
+    method: 'POST', headers: { Authorization: `Bearer ${admin}` },
+  })).status, 404);
 });

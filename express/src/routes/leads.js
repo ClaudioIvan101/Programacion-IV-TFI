@@ -17,6 +17,8 @@ const leadBody = z.strictObject({
   channel: z.enum(['form', 'simulated_messaging']).nullish(),
   formId: id.nullish(),
   needs: text(2000).nullish(),
+  zone: text(120).nullish(),
+  financing: text(120).nullish(),
   budgetAmount: z.number().min(0).max(1_000_000_000_000).nullish(),
   budgetCurrency: z.enum(['ARS', 'USD']).nullish(),
   urgency: text(300).nullish(),

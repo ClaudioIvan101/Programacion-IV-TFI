@@ -2,6 +2,7 @@ import { Alert, Button, Group, Loader, Paper, Select, Stack, Text, Textarea, Tit
 import { useEffect, useState } from 'react';
 import { leadLabel } from '../dashboard/dashboardApi.js';
 import { leadRoute } from '../workspace/workspaceRoute.js';
+import { shouldSubmitChatOnKey } from './chatComposer.js';
 import { conversationSuggestions } from './conversationSuggestions.js';
 import { TurnJson, TurnResult } from './TurnResult.jsx';
 
@@ -39,13 +40,12 @@ export function ConversationPanel({ api, lead }) {
   }
 
   return (
-    <Paper className="dashboard-panel" withBorder component="section" aria-label="Chat">
-      <Stack>
-        <div>
-          <Text className="auth-label" size="xs" fw={700}>CHAT</Text>
-          <Title order={2}>{leadLabel(lead)}</Title>
-          <Button component="a" href={leadRoute('calificacion', lead.id)} variant="subtle" size="compact-sm" mt="xs">Revisar y calificar</Button>
-        </div>
+    <Paper className="dashboard-panel chat-conversation-panel" withBorder component="section" aria-label="Chat">
+      <Stack className="chat-conversation-content" gap="xs">
+        <Group className="chat-conversation-heading" justify="space-between" gap="xs">
+          <Title className="chat-lead-name" order={2} size="h4">{leadLabel(lead)}</Title>
+          <Button component="a" href={leadRoute('calificacion', lead.id)} variant="subtle" size="compact-sm">Revisar y calificar</Button>
+        </Group>
         {error && <Alert color="red" role="alert">{error}</Alert>}
         {!conversations && (error
           ? <Button variant="light" onClick={() => { setError(''); setAttempt((value) => value + 1); }}>Reintentar</Button>
@@ -54,7 +54,7 @@ export function ConversationPanel({ api, lead }) {
           <Button variant="light" loading={busy} onClick={startConversation}>Abrir conversación</Button>
         )}
         {conversations?.length > 0 && (
-          <Select label="Conversación" value={conversationId} onChange={setConversationId} allowDeselect={false}
+          <Select label="Conversación" size="xs" value={conversationId} onChange={setConversationId} allowDeselect={false}
             data={conversations.map(({ id, createdAt }, index) => ({
               value: id,
               label: 'Conversación ' + (index + 1) + ' · ' + new Date(createdAt).toLocaleString('es-AR'),
@@ -75,6 +75,8 @@ function MessageThread({ api, conversationId, leadId }) {
   const [revision, setRevision] = useState(0);
   const [context, setContext] = useState(null);
   const [contextError, setContextError] = useState('');
+  const [contextOpen, setContextOpen] = useState(false);
+  const canSend = Boolean(draft.trim() && messages && !isSending && !conflict);
   const lastTurn = messages?.findLast((message) => message.turnResult)?.turnResult;
   const humanReviewRequired = lastTurn?.humanReviewRequired === true;
 
@@ -106,7 +108,7 @@ function MessageThread({ api, conversationId, leadId }) {
 
   async function submit(event) {
     event.preventDefault();
-    if (!draft.trim() || isSending || conflict || !messages) return;
+    if (!canSend) return;
     setIsSending(true);
     setError('');
     try {
@@ -121,15 +123,27 @@ function MessageThread({ api, conversationId, leadId }) {
     }
   }
 
+  function handleComposerKeyDown(event) {
+    if (!shouldSubmitChatOnKey(event, canSend)) return;
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  }
+
   const suggested = conversationSuggestions(context);
   return (
-    <div className="chat-thread-columns">
-      <Stack gap="sm">
+    <div className="chat-thread-columns" data-context-open={contextOpen}>
+      <Stack className="chat-thread-main" gap="xs">
         <Group justify="space-between">
           <Text fw={600}>Historial</Text>
-          <Button size="compact-sm" variant="subtle" disabled={isSending} onClick={refresh}>Actualizar historial</Button>
+          <Group gap={4}>
+            <Button size="compact-sm" variant="subtle" disabled={isSending} onClick={refresh}>Actualizar historial</Button>
+            <Button className="chat-context-toggle" variant="default" size="compact-sm"
+              aria-expanded={contextOpen} aria-controls="chat-context" onClick={() => setContextOpen((open) => !open)}>
+              {contextOpen ? 'Ocultar contexto' : 'Ver contexto'}
+            </Button>
+          </Group>
         </Group>
-        <div className="dashboard-history" role="log" aria-label="Historial de conversación">
+        <div className="dashboard-history chat-history" role="log" aria-label="Historial de conversación" tabIndex={0}>
           {!messages && !error && <Loader size="sm" aria-label="Cargando historial" />}
           {messages?.length === 0 && <Text c="dimmed" size="sm">Todavía no hay mensajes.</Text>}
           {messages?.map((message) => (
@@ -141,16 +155,17 @@ function MessageThread({ api, conversationId, leadId }) {
             </div>
           ))}
         </div>
-        {error && <Alert role="alert" color="red">{error}</Alert>}
-        <form onSubmit={submit}>
-          <Stack gap="xs">
-            <Textarea label="Mensaje del interesado" value={draft} maxLength={4000}
-              disabled={isSending} onChange={(event) => setDraft(event.currentTarget.value)} />
-            <Button type="submit" loading={isSending} disabled={!draft.trim() || !messages || conflict}>Enviar al asistente</Button>
-          </Stack>
+        {error && <Alert className="chat-send-error" role="alert" color="red">{error}</Alert>}
+        <form className="chat-composer" onSubmit={submit}>
+          <Group gap="xs" align="end" wrap="nowrap">
+            <Textarea className="chat-composer-input" label="Mensaje del interesado" value={draft} maxLength={4000}
+              rows={2} size="xs" disabled={isSending} onKeyDown={handleComposerKeyDown}
+              onChange={(event) => setDraft(event.currentTarget.value)} />
+            <Button type="submit" size="xs" loading={isSending} disabled={!canSend}>Enviar al asistente</Button>
+          </Group>
         </form>
       </Stack>
-      <Stack gap="sm">
+      <Stack className="chat-context-panel" id="chat-context" gap="sm" tabIndex={0} role="region" aria-label="Contexto del asistente">
         <Paper p="sm" withBorder>
           <Text size="sm" fw={700}>Contexto del asistente</Text>
           <Text size="xs" c="dimmed">Datos del interesado que el asistente usa para continuar. No cambian el puntaje por sí solos.</Text>

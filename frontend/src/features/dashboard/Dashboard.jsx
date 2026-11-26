@@ -10,6 +10,7 @@ import './dashboard.css';
 
 const decisions = {
   qualified: ['Calificado', 'green'],
+  review: ['En revisión', 'yellow'],
   not_qualified: ['No calificado', 'gray'],
   pending: ['Pendiente', 'yellow'],
 };
@@ -26,7 +27,6 @@ export function Dashboard({ accessToken, onUnauthorized }) {
   const [campaign, setCampaign] = useState(null);
   const [search, setSearch] = useState('');
   const [registering, setRegistering] = useState(false);
-  const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
@@ -124,9 +124,8 @@ export function Dashboard({ accessToken, onUnauthorized }) {
               ...Array.from(campaignNames, ([value, label]) => ({ value, label }))]} />
           <TextInput aria-label="Filtrar por nombre o contacto" placeholder="Filtrar interesado o contacto…"
             value={search} onChange={(event) => setSearch(event.currentTarget.value)} />
-          <Button size="sm" onClick={() => { setNotice(''); setRegistering(true); }}>+ Registrar interesado</Button>
+          <Button size="sm" onClick={() => setRegistering(true)}>+ Registrar interesado</Button>
         </Group>
-        {notice && <Text role="status" mt="xs" size="sm" c="green">{notice}</Text>}
         {originError && <Text size="sm" c="dimmed" mt="xs">No se pudieron cargar todos los nombres de campaña o formulario.</Text>}
         {!overview && loading && <Text role="status" size="sm" mt="xs">Cargando interesados…</Text>}
         {overview && visibleLeads.length === 0 && <Text c="dimmed" size="sm" mt="xs">{campaign || search.trim()
@@ -145,7 +144,11 @@ export function Dashboard({ accessToken, onUnauthorized }) {
             return <Table.Tr key={lead.id}>
               <Table.Td>
                 <Text size="sm" fw={600}>{leadLabel(lead)}</Text>
-                {lead.name && (lead.email || lead.phone) && <Text size="xs" c="dimmed">{lead.email || lead.phone}</Text>}
+                {(lead.name && (lead.email || lead.phone) || lead.zone || lead.financing) && (
+                  <Text size="xs" c="dimmed">
+                    {[lead.name && (lead.email || lead.phone), lead.zone, lead.financing].filter(Boolean).join(' · ')}
+                  </Text>
+                )}
               </Table.Td>
               <Table.Td>
                 <Text size="sm" fw={600}>{lead.campaignId ? campaignNames.get(lead.campaignId) : 'Sin campaña'}</Text>
@@ -186,12 +189,9 @@ export function Dashboard({ accessToken, onUnauthorized }) {
       </Table.ScrollContainer>}
     </Paper>
     {registering && <LeadRegistration accessToken={accessToken} onUnauthorized={onUnauthorized}
-      onCreate={api.createLead} onClose={() => setRegistering(false)} onCreated={() => {
+      onCreate={api.createLead} onClose={() => setRegistering(false)} onCreated={(lead) => {
         setRegistering(false);
-        setNotice('Interesado registrado.');
-        setCampaign(null);
-        setSearch('');
-        refresh();
+        window.location.hash = leadRoute('chat', lead.id);
       }} />}
   </Stack>;
 }
