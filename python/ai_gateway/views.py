@@ -21,11 +21,11 @@ from .services.structured_completions import CompletionFailure, complete, fake_p
 
 def structured_completions(request):
     """POST /v1/structured-completions: valida el contrato T4 y delega el caso de uso."""
-    # 1. El identificador se extrae primero porque el sobre de error lo repite.
+    # 1. Lee el ID del pedido para poder incluirlo en la respuesta.
     request_id = request_identifier(request)
     head = request.method == "HEAD"
 
-    # 2. Precondiciones: método, JWT de servicio, encabezados, deadline y cuerpo.
+    # 2. Llama a open_request para validar el pedido de Express.
     try:
         gateway_request = open_request(request, request_id)
     except RequestRejected as rejected:
@@ -37,8 +37,8 @@ def structured_completions(request):
             head=head,
         )
 
-    # 3. Caso de uso: no conoce Django ni HTTP, solo el presupuesto de tiempo.
     try:
+        # 3. Elige Gemini o el proveedor simulado según la configuración.
         use_gemini = settings.AI_GATEWAY_PROVIDER == "gemini"
         if use_gemini and settings.GEMINI_API_KEY:
             provider = partial(gemini_completion, api_key=settings.GEMINI_API_KEY)
@@ -46,6 +46,7 @@ def structured_completions(request):
             provider = fake_provider
         else:
             raise CompletionFailure("SERVICE_UNAVAILABLE")
+        # 4. Pasa el pedido al caso de uso y recibe la respuesta ya validada.
         response = complete(
             gateway_request.payload,
             deadline_seconds=gateway_request.deadline_seconds,
@@ -55,7 +56,7 @@ def structured_completions(request):
     except CompletionFailure as failure:
         return service_error_response(failure, request_id=request_id, head=head)
 
-    # 4. Respuesta exitosa, con el X-Request-Id correlacionado.
+    # 5. Envía a Express el JSON por HTTP con estado 200 y el ID del pedido.
     headers = {"X-Request-Id": request_id} if request_id else {}
     return json_response(200, response, headers)
 

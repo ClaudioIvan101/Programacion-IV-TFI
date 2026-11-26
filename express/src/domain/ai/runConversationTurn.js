@@ -130,6 +130,7 @@ export function makeRunConversationTurn({
 
     let responseBody;
     try {
+      // 1. Espera los datos de Django ya validados por el cliente HTTP.
       responseBody = await aiGateway.structuredCompletion(request, {
         idempotencyKey: newId(),
         requestId: newId(),
@@ -147,6 +148,7 @@ export function makeRunConversationTurn({
 
     let processed;
     try {
+      // 2. Combina los datos de la respuesta con el contexto anterior.
       processed = processStructuredCompletion(responseBody, previousContext);
     } catch {
       // El contexto guardado no cumple `lead-data.schema.json`: es un defecto
@@ -164,6 +166,7 @@ export function makeRunConversationTurn({
       // El cliente sabe que debe preguntar por la moneda del presupuesto.
       needsBudgetCurrencyClarification: processed.needsBudgetCurrencyClarification,
     };
+    // 3. Guarda ambos mensajes, el contexto actualizado y el resultado del turno.
     return persist(result, processed.context);
   };
 }

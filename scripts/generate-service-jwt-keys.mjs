@@ -12,6 +12,7 @@ async function generateKeys() {
   }
 
   await mkdir(directory, { recursive: true, mode: 0o700 });
+  // Genera las dos claves RSA: Express firma con la privada y Django verifica con la pública.
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const keys = [
     ['service-jwt-private.pem', privateKey.export({ type: 'pkcs8', format: 'pem' }), 0o600],

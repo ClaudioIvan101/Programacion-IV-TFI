@@ -49,6 +49,7 @@ def complete(payload, *, deadline_seconds, provider, retry_invalid=False):
         if remaining <= 0:
             raise CompletionFailure("DEADLINE_EXCEEDED")
         try:
+            # 1. Llama al proveedor con el tiempo que queda para responder.
             response = provider(payload, timeout=remaining, retry=bool(attempt))
         except TimeoutError:
             raise CompletionFailure("DEADLINE_EXCEEDED") from None
@@ -59,17 +60,18 @@ def complete(payload, *, deadline_seconds, provider, retry_invalid=False):
         except Exception:
             raise CompletionFailure("INTERNAL_ERROR") from None
 
-        # Los intentos rechazados también consumen tokens si llegaron con métricas válidas.
         attempt_usage = response.get("usage") if isinstance(response, dict) else None
         if isinstance(attempt_usage, dict):
             for key in usage:
                 count = attempt_usage.get(key)
                 if type(count) is int and count >= 0:
                     usage[key] += count
+        # 2. Valida la respuesta con T4 y revisa que la pregunta apunte a un dato faltante.
         if _valid_response(response):
             elapsed = monotonic() - started
             if elapsed > deadline_seconds:
                 raise CompletionFailure("DEADLINE_EXCEEDED")
+            # 3. Devuelve la respuesta válida con el tiempo que tardó.
             return {**response, "usage": usage, "latency_ms": int(elapsed * 1000)}
 
     if monotonic() - started > deadline_seconds:
@@ -83,8 +85,6 @@ def _valid_response(response):
 
     data = response["data"]
     budget = data["extracted_data"]["presupuesto"]
-    # Coherencia interna: la pregunta de seguimiento debe estar entre los
-    # campos faltantes, y una moneda nula debe declararse como faltante.
     if data["next_question_key"] is not None and data["next_question_key"] not in data["missing_fields"]:
         return False
     return budget is None or (

@@ -27,7 +27,7 @@ export function createPostgresUserRepository(pool) {
     async findById(id) {
       return (await pool.query(`SELECT ${publicColumns} FROM users WHERE id = $1`, [id])).rows[0] ?? null;
     },
-    // Busca por email el ID, el estado y el hash que necesita el login.
+    // Para el login, busca por email el ID, el estado y el hash de contraseña.
     async findCredentialsByEmail(email) {
       // Solo el login necesita leer el hash. La búsqueda usa el índice de lower(email).
       return (await pool.query(

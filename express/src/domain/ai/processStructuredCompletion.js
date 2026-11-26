@@ -39,6 +39,7 @@ const responseSchema = z.strictObject({
 });
 
 export function processStructuredCompletion(responseBody, previousContext) {
+  // 1. Valida la respuesta con Zod antes de combinar los datos.
   const result = responseSchema.safeParse(responseBody);
   if (!result.success) {
     return { ok: false, code: "INVALID_PROVIDER_RESPONSE" };
@@ -48,7 +49,7 @@ export function processStructuredCompletion(responseBody, previousContext) {
   const extracted = response.data.extracted_data;
   const contact = extracted.contacto;
 
-  // El contacto se conserva campo por campo cuando el adaptador devuelve null.
+  // 2. Si un campo del contacto llega en null, conserva el valor anterior.
   const contacto = contact === null ? previous.contacto : {
     nombre: contact.nombre ?? previous.contacto?.nombre ?? null,
     email: contact.email ?? previous.contacto?.email ?? null,
@@ -56,11 +57,12 @@ export function processStructuredCompletion(responseBody, previousContext) {
   };
 
   const budget = extracted.presupuesto;
-  // La moneda anterior solo corresponde al monto con el que fue registrada.
+  // 3. Si cambia el monto y no llega una moneda, la deja pendiente.
   const presupuesto = budget === null ? previous.presupuesto : {
     monto: budget.monto,
     moneda: budget.moneda ?? (budget.monto === previous.presupuesto?.monto ? previous.presupuesto.moneda : null),
   };
+  // 4. Devuelve el contexto actualizado e indica si hay que aclarar la moneda.
   return {
     ok: true,
     response,

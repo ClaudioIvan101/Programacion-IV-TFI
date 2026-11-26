@@ -81,6 +81,7 @@ export function createAiGatewayClient({ baseUrl, getServiceToken, schemas, fetch
           await response.body?.cancel().catch(() => {});
           throw new AiGatewayError('HTTP_ERROR', response.status);
         }
+        // 1. La respuesta de Django debe tener estado 200 y declarar que es JSON.
         if (response.status !== 200 || response.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') {
           await response.body?.cancel().catch(() => {});
           throw new AiGatewayError('INVALID_RESPONSE');
@@ -106,9 +107,11 @@ export function createAiGatewayClient({ baseUrl, getServiceToken, schemas, fetch
           if (error instanceof AiGatewayError) throw error;
           throw new AiGatewayError(controller.signal.aborted ? 'TIMEOUT' : 'TRANSPORT');
         } finally { reader.releaseLock(); }
+        // 2. Convierte el cuerpo recibido en datos de JavaScript.
         let data;
         try { data = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))); }
         catch { throw new AiGatewayError('INVALID_RESPONSE'); }
+        // 3. Comprueba con Ajv que los datos cumplan el esquema T4 de respuesta.
         if (!validateResponse(data)) throw new AiGatewayError('INVALID_RESPONSE');
         return data;
       };

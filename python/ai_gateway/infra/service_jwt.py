@@ -105,7 +105,7 @@ def load_service_jwt_verifier(public_key_file):
         )
 
     try:
-        # La clave pública se genera en scripts/generate-service-jwt-keys.mjs, línea 15.
+        # Lee la clave pública generada por scripts/generate-service-jwt-keys.mjs.
         public_key_pem = Path(public_key_file).read_bytes()
         return make_service_jwt_verifier(public_key_pem)
     except (OSError, ValueError, UnsupportedAlgorithm) as exc:
