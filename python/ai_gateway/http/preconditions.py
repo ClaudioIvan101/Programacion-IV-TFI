@@ -101,6 +101,7 @@ def _authenticate(request):
     - Solo un intento real de autenticación puede revelar un 503 por
       configuración faltante.
     """
+    # 1. Lee el encabezado Authorization, que contiene el token Bearer.
     authorization = request.headers.get("Authorization")
     if not authorization or not authorization.strip():
         raise RequestRejected(
@@ -116,6 +117,7 @@ def _authenticate(request):
             503, "SERVICE_UNAVAILABLE", {"Retry-After": "1"}
         ) from None
 
+    # 2. Pasa el valor del encabezado a verify. Si el token es inválido, responde 401.
     if not verify(authorization):
         raise RequestRejected(
             401, "UNAUTHENTICATED", {"WWW-Authenticate": "Bearer"}
